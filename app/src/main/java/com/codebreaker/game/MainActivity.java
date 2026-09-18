@@ -2,6 +2,7 @@ package com.codebreaker.game;
 
 import android.app.Activity;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
@@ -9,6 +10,7 @@ import android.os.Bundle;
 import android.text.InputFilter;
 import android.text.InputType;
 import android.view.Gravity;
+import android.view.WindowManager;
 import android.view.View;
 import android.widget.*;
 import java.util.*;
@@ -24,11 +26,11 @@ public class MainActivity extends Activity {
     final ExecutorService pool=Executors.newSingleThreadExecutor();
     final HashSet<Character> crossed=new HashSet<>();
 
-    LinearLayout root, cluesBox, digitRow, modesRow;
+    ScrollView appScroll;
+    LinearLayout root, cluesBox, digitRow;
     EditText guess, notes;
     TextView status, modeInfo;
-    Button hintBtn, newBtn;
-    Button[] modeButtons=new Button[3];
+    Button hintBtn, newBtn, difficultyBtn;
     String mode="normal";
     Puzzle puzzle;
     boolean hintUsed=false, attempted=false;
@@ -51,6 +53,7 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
         if(Build.VERSION.SDK_INT>=23) getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         genCodes("",new boolean[10]);
         buildUi();
         startPuzzle();
@@ -103,12 +106,13 @@ public class MainActivity extends Activity {
     }
 
     void buildUi(){
-        ScrollView scroll=new ScrollView(this);
-        scroll.setFillViewport(true); scroll.setBackgroundColor(BG);
+        appScroll=new ScrollView(this);
+        appScroll.setFillViewport(true); appScroll.setBackgroundColor(BG);
         root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL);
+        root.setFocusableInTouchMode(true);
         root.setPadding(dp(10),statusBarHeight()+dp(8),dp(10),dp(12));
-        scroll.addView(root,new ScrollView.LayoutParams(-1,-2));
-        setContentView(scroll);
+        appScroll.addView(root,new ScrollView.LayoutParams(-1,-2));
+        setContentView(appScroll);
 
         LinearLayout header=new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
@@ -118,24 +122,28 @@ public class MainActivity extends Activity {
         titleBox.addView(title); titleBox.addView(sub);
         header.addView(titleBox,new LinearLayout.LayoutParams(0,-2,1));
 
-        newBtn=btn("New Puzzle"); stylePrimary(newBtn);
-        LinearLayout.LayoutParams nlp=new LinearLayout.LayoutParams(dp(104),dp(42)); nlp.setMargins(dp(8),0,0,0);
-        header.addView(newBtn,nlp); root.addView(header);
-        newBtn.setOnClickListener(v->startPuzzle());
+        LinearLayout puzzleActions=new LinearLayout(this);
+        puzzleActions.setGravity(Gravity.CENTER_VERTICAL);
 
-        modesRow=new LinearLayout(this); modesRow.setGravity(Gravity.CENTER);
-        String[] ms={"Easy","Normal","Hard"};
-        for(int i=0;i<3;i++){
-            Button b=btn(ms[i]); b.setTag(ms[i].toLowerCase()); modeButtons[i]=b;
-            final int idx=i;
-            b.setOnClickListener(v->{
-                mode=(String)v.getTag(); refreshModeStyles(); startPuzzle();
-            });
-            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(40),1);
-            lp.setMargins(i==0?0:dp(3),dp(8),i==2?0:dp(3),0);
-            modesRow.addView(b,lp);
-        }
-        root.addView(modesRow);
+        newBtn=btn("New Puzzle"); stylePrimary(newBtn);
+        LinearLayout.LayoutParams nlp=new LinearLayout.LayoutParams(dp(104),dp(42));
+        puzzleActions.addView(newBtn,nlp);
+
+        difficultyBtn=btn("+");
+        difficultyBtn.setTextSize(19);
+        difficultyBtn.setTextColor(WHITE);
+        difficultyBtn.setBackground(box(accent(),accent(),12));
+        LinearLayout.LayoutParams dlp=new LinearLayout.LayoutParams(dp(44),dp(42));
+        dlp.setMargins(dp(5),0,0,0);
+        puzzleActions.addView(difficultyBtn,dlp);
+
+        LinearLayout.LayoutParams actionsLp=new LinearLayout.LayoutParams(-2,-2);
+        actionsLp.setMargins(dp(8),0,0,0);
+        header.addView(puzzleActions,actionsLp);
+        root.addView(header);
+
+        newBtn.setOnClickListener(v->startPuzzle());
+        difficultyBtn.setOnClickListener(v->showDifficultyMenu());
         refreshModeStyles();
 
         cluesBox=new LinearLayout(this); cluesBox.setOrientation(LinearLayout.VERTICAL);
@@ -176,8 +184,26 @@ public class MainActivity extends Activity {
         notes.setBackground(box(Color.rgb(252,253,255),Color.rgb(216,224,233),11));
         notes.setPadding(dp(9),dp(7),dp(9),dp(7));
         notes.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        LinearLayout.LayoutParams notesLp=new LinearLayout.LayoutParams(-1,dp(82)); notesLp.setMargins(0,dp(7),0,dp(5));
+        LinearLayout.LayoutParams notesLp=new LinearLayout.LayoutParams(-1,dp(96)); notesLp.setMargins(0,dp(7),0,dp(5));
         work.addView(notes,notesLp);
+        notes.setOnFocusChangeListener((v,hasFocus)->{
+            if(hasFocus){
+                appScroll.postDelayed(()->{
+                    Rect r=new Rect();
+                    notes.getDrawingRect(r);
+                    root.offsetDescendantRectToMyCoords(notes,r);
+                    int target=Math.max(0,r.bottom-appScroll.getHeight()+dp(28));
+                    appScroll.smoothScrollTo(0,target);
+                },300);
+            }
+        });
+        notes.setOnClickListener(v->appScroll.postDelayed(()->{
+            Rect r=new Rect();
+            notes.getDrawingRect(r);
+            root.offsetDescendantRectToMyCoords(notes,r);
+            int target=Math.max(0,r.bottom-appScroll.getHeight()+dp(28));
+            appScroll.smoothScrollTo(0,target);
+        },250));
 
         Button clear=btn("Clear scratchpad");
         clear.setTextColor(accent()); clear.setBackground(box(pale(),Color.TRANSPARENT,10));
@@ -187,17 +213,33 @@ public class MainActivity extends Activity {
 
     void refreshModeStyles(){
         int a=accent();
-        for(Button b:modeButtons){
-            if(b==null)continue;
-            boolean active=b.getTag().equals(mode);
-            b.setTextColor(active?WHITE:INK);
-            b.setBackground(box(active?a:WHITE,active?a:LINE,12));
-        }
         if(newBtn!=null)stylePrimary(newBtn);
+        if(difficultyBtn!=null){
+            difficultyBtn.setTextColor(WHITE);
+            difficultyBtn.setBackground(box(a,a,12));
+        }
         if(modeInfo!=null){
             modeInfo.setText(mode.equals("easy")?"Easy · extra help in Hint 3":mode.equals("hard")?"Hard · one clue tougher":"Normal · classic clue pattern");
-            modeInfo.setTextColor(a); modeInfo.setBackground(box(pale(),Color.TRANSPARENT,10));
+            modeInfo.setTextColor(a);
+            modeInfo.setBackground(box(pale(),Color.TRANSPARENT,10));
         }
+    }
+
+    void showDifficultyMenu(){
+        PopupMenu menu=new PopupMenu(this,difficultyBtn);
+        menu.getMenu().add("Easy");
+        menu.getMenu().add("Normal");
+        menu.getMenu().add("Hard");
+        menu.setOnMenuItemClickListener(item->{
+            String next=item.getTitle().toString().toLowerCase();
+            if(!next.equals(mode)){
+                mode=next;
+                refreshModeStyles();
+                startPuzzle();
+            }
+            return true;
+        });
+        menu.show();
     }
 
     void renderDigits(){
@@ -264,7 +306,8 @@ public class MainActivity extends Activity {
                 puzzle=p; renderPuzzle(); newBtn.setEnabled(true); hintBtn.setEnabled(true); hintBtn.setText("Hint");
                 guess.setEnabled(true); refreshModeStyles();
                 status.setText("Use the scratchpad below to eliminate digits.");
-                guess.requestFocus();
+                root.requestFocus();
+                appScroll.post(()->appScroll.smoothScrollTo(0,0));
             });
         });
     }
