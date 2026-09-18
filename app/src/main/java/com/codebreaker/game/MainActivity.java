@@ -1,6 +1,7 @@
 package com.codebreaker.game;
 
 import android.app.Activity;
+import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
@@ -20,6 +21,7 @@ import android.text.style.StrikethroughSpan;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.FrameLayout;
@@ -62,7 +64,8 @@ public class MainActivity extends Activity {
     final ArrayList<Clue> visibleClues=new ArrayList<>();
     final Button[] digitKeys=new Button[10];
 
-    LinearLayout root, cluesBox, candidateBox, workingSlots, machine;
+    LinearLayout root, cluesBox, workingSlots, machine;
+    FlowLayout candidateBox;
     ScrollView candidateScroll;
     Button newCipherBtn, difficultyBtn, assistBtn, resetBtn, decipherBtn, deleteBtn, enterBtn;
     TextView resultStamp;
@@ -96,6 +99,85 @@ public class MainActivity extends Activity {
         String secret;
         ArrayList<Clue> clues;
         Puzzle(String secret,ArrayList<Clue> clues){this.secret=secret;this.clues=clues;}
+    }
+
+    class FlowLayout extends ViewGroup {
+        FlowLayout(Context c){ super(c); }
+
+        @Override protected void onMeasure(int widthMeasureSpec,int heightMeasureSpec){
+            int width=MeasureSpec.getSize(widthMeasureSpec);
+            int available=Math.max(0,width-getPaddingLeft()-getPaddingRight());
+            int x=0, y=getPaddingTop(), lineH=0;
+
+            for(int i=0;i<getChildCount();i++){
+                View child=getChildAt(i);
+                measureChild(child,widthMeasureSpec,heightMeasureSpec);
+                int cw=child.getMeasuredWidth();
+                int ch=child.getMeasuredHeight();
+
+                if(x>0 && x+cw>available){
+                    y+=lineH;
+                    x=0;
+                    lineH=0;
+                }
+                x+=cw;
+                lineH=Math.max(lineH,ch);
+            }
+
+            y+=lineH+getPaddingBottom();
+            int desired=Math.max(getSuggestedMinimumHeight(),y);
+            setMeasuredDimension(resolveSize(width,widthMeasureSpec),resolveSize(desired,heightMeasureSpec));
+        }
+
+        @Override protected void onLayout(boolean changed,int l,int t,int r,int b){
+            int available=Math.max(0,r-l-getPaddingLeft()-getPaddingRight());
+            int x=0, y=getPaddingTop(), lineH=0;
+
+            for(int i=0;i<getChildCount();i++){
+                View child=getChildAt(i);
+                int cw=child.getMeasuredWidth();
+                int ch=child.getMeasuredHeight();
+
+                if(x>0 && x+cw>available){
+                    y+=lineH;
+                    x=0;
+                    lineH=0;
+                }
+
+                int left=getPaddingLeft()+x;
+                child.layout(left,y,left+cw,y+ch);
+                x+=cw;
+                lineH=Math.max(lineH,ch);
+            }
+        }
+    }
+
+    class ScratchTextView extends TextView {
+        final Paint scratchPaint=new Paint(Paint.ANTI_ALIAS_FLAG);
+        boolean scratched=false;
+
+        ScratchTextView(Context c){
+            super(c);
+            scratchPaint.setColor(Color.rgb(74,45,28));
+            scratchPaint.setStrokeWidth(dp(2.1f));
+            scratchPaint.setStrokeCap(Paint.Cap.ROUND);
+        }
+
+        void setScratched(boolean value){
+            scratched=value;
+            invalidate();
+        }
+
+        @Override protected void onDraw(Canvas canvas){
+            super.onDraw(canvas);
+            if(scratched){
+                float left=getPaddingLeft();
+                float right=getWidth()-getPaddingRight();
+                float y=getHeight()*.50f;
+                canvas.drawLine(left,y,right,y+dp(1),scratchPaint);
+                canvas.drawLine(left,y+dp(3),right,y+dp(2),scratchPaint);
+            }
+        }
     }
 
     @Override public void onCreate(Bundle b){
@@ -298,7 +380,7 @@ public class MainActivity extends Activity {
         root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(WOOD_DARK);
-        root.setPadding(dp(8),statusBarHeight()+dp(6),dp(8),dp(8));
+        root.setPadding(dp(8),statusBarHeight()+dp(6),dp(8),dp(32));
         setContentView(root,new android.view.ViewGroup.LayoutParams(-1,-1));
 
         LinearLayout paperPane=new LinearLayout(this);
@@ -314,8 +396,8 @@ public class MainActivity extends Activity {
         difficultyBtn=oldButton("+");
         difficultyBtn.setTextSize(20);
         difficultyBtn.setBackground(splitShape(Color.rgb(91,55,34),BRASS,false));
-        split.addView(newCipherBtn,new LinearLayout.LayoutParams(0,dp(38),1));
-        split.addView(difficultyBtn,new LinearLayout.LayoutParams(dp(48),dp(38)));
+        split.addView(newCipherBtn,new LinearLayout.LayoutParams(0,dp(42),1));
+        split.addView(difficultyBtn,new LinearLayout.LayoutParams(dp(52),dp(42)));
         paperPane.addView(split,new LinearLayout.LayoutParams(-1,-2));
 
         newCipherBtn.setOnClickListener(v->{pressAnim(v);startPuzzle();});
@@ -338,24 +420,24 @@ public class MainActivity extends Activity {
         answerStage=new FrameLayout(this);
         workingSlots=new LinearLayout(this);
         workingSlots.setGravity(Gravity.CENTER);
-        answerStage.addView(workingSlots,new FrameLayout.LayoutParams(-1,dp(46),Gravity.CENTER));
-        machine.addView(answerStage,new LinearLayout.LayoutParams(-1,dp(47)));
+        answerStage.addView(workingSlots,new FrameLayout.LayoutParams(-1,dp(58),Gravity.CENTER));
+        machine.addView(answerStage,new LinearLayout.LayoutParams(-1,dp(60)));
 
         FrameLayout messageArea=new FrameLayout(this);
-        resultStamp=typeText("",11,true);
+        resultStamp=typeText("",13,true);
         resultStamp.setGravity(Gravity.CENTER);
         resultStamp.setTextColor(RED_INK);
         resultStamp.setPadding(dp(12),dp(3),dp(12),dp(3));
         resultStamp.setBackground(new AgedPaperDrawable(7,true));
         resultStamp.setVisibility(View.GONE);
-        messageArea.addView(resultStamp,new FrameLayout.LayoutParams(-2,dp(30),Gravity.CENTER));
-        machine.addView(messageArea,new LinearLayout.LayoutParams(-1,dp(31)));
+        messageArea.addView(resultStamp,new FrameLayout.LayoutParams(-2,dp(34),Gravity.CENTER));
+        machine.addView(messageArea,new LinearLayout.LayoutParams(-1,dp(35)));
 
         decipherBtn=oldButton("DECIPHER");
-        decipherBtn.setTextSize(12);
+        decipherBtn.setTextSize(15);
         decipherBtn.setTextColor(INK);
         decipherBtn.setBackground(new MechanicalKeyDrawable(false,false));
-        LinearLayout.LayoutParams dcp=new LinearLayout.LayoutParams(-1,dp(38));
+        LinearLayout.LayoutParams dcp=new LinearLayout.LayoutParams(-1,dp(46));
         dcp.setMargins(dp(2),0,dp(2),dp(5));
         machine.addView(decipherBtn,dcp);
         decipherBtn.setOnClickListener(v->{pressAnim(v);checkWorking();});
@@ -365,16 +447,14 @@ public class MainActivity extends Activity {
         candidateScroll.setNestedScrollingEnabled(true);
         candidateScroll.setBackground(new AgedPaperDrawable(8,true));
 
-        candidateBox=new LinearLayout(this);
-        candidateBox.setOrientation(LinearLayout.VERTICAL);
-        candidateBox.setPadding(dp(8),dp(4),dp(8),dp(4));
+        candidateBox=new FlowLayout(this);
+        candidateBox.setPadding(dp(10),dp(7),dp(10),dp(7));
+        candidateBox.setMinimumHeight(dp(125));
         candidateScroll.addView(candidateBox,new ScrollView.LayoutParams(-1,-2));
 
-        LinearLayout.LayoutParams csp=new LinearLayout.LayoutParams(-1,dp(96));
-        csp.setMargins(0,0,0,dp(5));
+        LinearLayout.LayoutParams csp=new LinearLayout.LayoutParams(-1,0,1f);
+        csp.setMargins(0,0,0,dp(8));
         machine.addView(candidateScroll,csp);
-
-        machine.addView(new Space(this),new LinearLayout.LayoutParams(-1,0,1f));
 
         addKeyboard();
         renderWorking();
@@ -398,57 +478,43 @@ public class MainActivity extends Activity {
 
     void addKeyboard(){
         LinearLayout keyboard=new LinearLayout(this);
-        keyboard.setOrientation(LinearLayout.HORIZONTAL);
+        keyboard.setOrientation(LinearLayout.VERTICAL);
         keyboard.setGravity(Gravity.BOTTOM);
-        machine.addView(keyboard,new LinearLayout.LayoutParams(-1,dp(190)));
+        LinearLayout.LayoutParams klp=new LinearLayout.LayoutParams(-1,dp(260));
+        klp.setMargins(dp(2),0,dp(2),dp(6));
+        machine.addView(keyboard,klp);
 
-        LinearLayout numbers=new LinearLayout(this);
-        numbers.setOrientation(LinearLayout.VERTICAL);
-        keyboard.addView(numbers,new LinearLayout.LayoutParams(0,-1,3f));
+        assistBtn=mechanicalKey("HINT",11);
+        resetBtn=mechanicalKey("RESET",11);
+        Button resolveBtn=mechanicalKey("RESOLVE",10);
+        addControlRow(keyboard,new Button[]{assistBtn,resetBtn,resolveBtn});
 
-        LinearLayout actions=new LinearLayout(this);
-        actions.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams alp=new LinearLayout.LayoutParams(0,-1,1f);
-        alp.setMargins(dp(4),0,0,0);
-        keyboard.addView(actions,alp);
-
-        addNumberRow(numbers,new int[]{1,2,3});
-        addNumberRow(numbers,new int[]{4,5,6});
-        addNumberRow(numbers,new int[]{7,8,9});
-
-        LinearLayout bottom=new LinearLayout(this);
-        bottom.setGravity(Gravity.CENTER);
-        bottom.addView(new Space(this),new LinearLayout.LayoutParams(0,dp(45),1));
+        addNumberRow(keyboard,new int[]{1,2,3});
+        addNumberRow(keyboard,new int[]{4,5,6});
+        addNumberRow(keyboard,new int[]{7,8,9});
 
         Button zero=numberKey(0);
         digitKeys[0]=zero;
-        LinearLayout.LayoutParams zlp=new LinearLayout.LayoutParams(0,dp(45),1);
-        zlp.setMargins(dp(3),dp(1),dp(3),dp(1));
-        bottom.addView(zero,zlp);
-
-        bottom.addView(new Space(this),new LinearLayout.LayoutParams(0,dp(45),1));
-        numbers.addView(bottom,new LinearLayout.LayoutParams(-1,dp(47)));
-
-        assistBtn=mechanicalKey("HINT",8);
-        resetBtn=mechanicalKey("RESET",8);
-        deleteBtn=mechanicalKey("DELETE",8);
-        enterBtn=mechanicalKey("ENTER",9);
-
-        actions.addView(assistBtn,actionLp());
-        actions.addView(resetBtn,actionLp());
-        actions.addView(deleteBtn,actionLp());
-        actions.addView(enterBtn,actionLp());
+        deleteBtn=mechanicalKey("DELETE",11);
+        enterBtn=mechanicalKey("ENTER",12);
+        addControlRow(keyboard,new Button[]{zero,deleteBtn,enterBtn});
 
         assistBtn.setOnClickListener(v->{pressAnim(v);useAssist();});
         resetBtn.setOnClickListener(v->{pressAnim(v);resetBoard();});
+        resolveBtn.setOnClickListener(v->{pressAnim(v);revealSolution();});
         deleteBtn.setOnClickListener(v->{pressAnim(v);backspace();});
         enterBtn.setOnClickListener(v->{pressAnim(v);saveCandidate();});
     }
 
-    LinearLayout.LayoutParams actionLp(){
-        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,0,1f);
-        lp.setMargins(0,dp(1),0,dp(1));
-        return lp;
+    void addControlRow(LinearLayout parent,Button[] buttons){
+        LinearLayout row=new LinearLayout(this);
+        row.setGravity(Gravity.CENTER);
+        for(Button b:buttons){
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(50),1);
+            lp.setMargins(dp(4),dp(1),dp(4),dp(1));
+            row.addView(b,lp);
+        }
+        parent.addView(row,new LinearLayout.LayoutParams(-1,dp(52)));
     }
 
     void addNumberRow(LinearLayout parent,int[] digits){
@@ -457,16 +523,16 @@ public class MainActivity extends Activity {
         for(int d:digits){
             Button key=numberKey(d);
             digitKeys[d]=key;
-            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(45),1);
-            lp.setMargins(dp(3),dp(1),dp(3),dp(1));
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(50),1);
+            lp.setMargins(dp(4),dp(1),dp(4),dp(1));
             row.addView(key,lp);
         }
-        parent.addView(row,new LinearLayout.LayoutParams(-1,dp(47)));
+        parent.addView(row,new LinearLayout.LayoutParams(-1,dp(52)));
     }
 
     Button numberKey(int digit){
         final char d=(char)('0'+digit);
-        Button key=mechanicalKey(String.valueOf(d),17);
+        Button key=mechanicalKey(String.valueOf(d),21);
         key.setBackground(keyBackground(eliminated.contains(d)));
 
         key.setOnClickListener(v->{
@@ -554,7 +620,6 @@ public class MainActivity extends Activity {
 
         if(wholeCross&&value.length()>0){
             s.setSpan(new StrikethroughSpan(),0,value.length(),Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            s.setSpan(new ForegroundColorSpan(Color.rgb(122,74,54)),0,value.length(),Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
         return s;
     }
@@ -564,7 +629,7 @@ public class MainActivity extends Activity {
 
         for(int i=0;i<4;i++){
             final int slotIndex=i;
-            TextView slot=typeText("·",28,true);
+            TextView slot=typeText("·",36,true);
             slot.setGravity(Gravity.CENTER);
             slot.setTextColor(i==activeSlot?BRASS_LIGHT:Color.rgb(230,205,151));
             slot.setBackgroundColor(Color.TRANSPARENT);
@@ -579,8 +644,8 @@ public class MainActivity extends Activity {
                 renderWorking();
             });
 
-            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(60),dp(44));
-            lp.setMargins(dp(4),0,dp(4),0);
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(68),dp(56));
+            lp.setMargins(dp(5),0,dp(5),0);
             workingSlots.addView(slot,lp);
         }
     }
@@ -589,51 +654,34 @@ public class MainActivity extends Activity {
         candidateBox.removeAllViews();
 
         if(candidates.isEmpty()){
-            TextView empty=typeText("·  ·  ·  ·",13,false);
+            TextView empty=typeText("·  ·  ·  ·",17,false);
             empty.setTextColor(Color.rgb(143,102,64));
             empty.setGravity(Gravity.LEFT|Gravity.CENTER_VERTICAL);
-            candidateBox.addView(empty,new LinearLayout.LayoutParams(-1,dp(28)));
+            empty.setPadding(dp(4),0,dp(4),0);
+            candidateBox.addView(empty,new ViewGroup.LayoutParams(-2,dp(38)));
             return;
         }
 
-        for(int i=0;i<candidates.size();i+=4){
-            LinearLayout row=new LinearLayout(this);
-            row.setGravity(Gravity.LEFT|Gravity.CENTER_VERTICAL);
+        for(String value:candidates){
+            final String candidate=value;
+            final ScratchTextView item=new ScratchTextView(this);
+            item.setTextSize(18);
+            item.setTypeface(oldFace(true));
+            item.setTextColor(INK);
+            item.setGravity(Gravity.CENTER_VERTICAL);
+            item.setPadding(dp(3),0,dp(10),0);
+            item.setText(styledDigits(candidate+",",false));
+            item.setScratched(crossedCandidates.contains(candidate));
 
-            for(int j=0;j<4;j++){
-                int idx=i+j;
-                if(idx>=candidates.size())break;
+            item.setOnClickListener(v->{
+                if(crossedCandidates.contains(candidate))crossedCandidates.remove(candidate);
+                else crossedCandidates.add(candidate);
+                item.setScratched(crossedCandidates.contains(candidate));
+            });
 
-                final String value=candidates.get(idx);
-                boolean crossed=crossedCandidates.contains(value);
-
-                TextView item=typeText("",13,true);
-                item.setGravity(Gravity.CENTER_VERTICAL);
-                item.setText(styledDigits(value+",",crossed));
-                item.setBackgroundColor(Color.TRANSPARENT);
-                item.setAlpha(1f);
-
-                item.setOnClickListener(v->{
-                    if(crossedCandidates.contains(value))crossedCandidates.remove(value);
-                    else crossedCandidates.add(value);
-                    renderCandidates();
-                });
-
-                item.setOnLongClickListener(v->{
-                    candidates.remove(value);
-                    crossedCandidates.remove(value);
-                    renderCandidates();
-                    return true;
-                });
-
-                LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-2,dp(29));
-                lp.setMargins(0,0,dp(10),0);
-                row.addView(item,lp);
-            }
-            candidateBox.addView(row,new LinearLayout.LayoutParams(-1,dp(29)));
+            candidateBox.addView(item,new ViewGroup.LayoutParams(-2,dp(39)));
         }
     }
-
     void saveCandidate(){
         String value=currentPartial();
 
@@ -719,13 +767,13 @@ public class MainActivity extends Activity {
             card.setPadding(dp(9),dp(3),dp(8),dp(3));
             card.setBackground(new AgedPaperDrawable(8,true));
 
-            TextView code=typeText("",20,true);
+            TextView code=typeText("",22,true);
             code.setGravity(Gravity.CENTER_VERTICAL);
             code.setText(styledDigits(c.code,false));
             clueCodeViews.add(code);
             card.addView(code,new LinearLayout.LayoutParams(dp(92),dp(35)));
 
-            TextView rule=typeText(c.shortText(),9,true);
+            TextView rule=typeText(c.shortText(),10,true);
             rule.setTextColor(FADED);
             rule.setGravity(Gravity.CENTER_VERTICAL);
             card.addView(rule,new LinearLayout.LayoutParams(0,dp(35),1));
@@ -846,12 +894,12 @@ public class MainActivity extends Activity {
         panel.setPadding(dp(24),dp(22),dp(24),dp(20));
         panel.setBackground(new AgedPaperDrawable(12,true));
 
-        TextView title=typeText("CIPHER BROKEN",24,true);
+        TextView title=typeText("CIPHER BROKEN",27,true);
         title.setGravity(Gravity.CENTER);
         title.setTextColor(RED_INK);
         panel.addView(title,new LinearLayout.LayoutParams(-1,dp(48)));
 
-        TextView code=typeText(new String(answerSlots),25,true);
+        TextView code=typeText(new String(answerSlots),29,true);
         code.setGravity(Gravity.CENTER);
         code.setTextColor(INK);
         panel.addView(code,new LinearLayout.LayoutParams(-1,dp(44)));
@@ -864,7 +912,7 @@ public class MainActivity extends Activity {
         nlp.setMargins(0,dp(12),0,0);
         panel.addView(next,nlp);
 
-        final PopupWindow popup=new PopupWindow(panel,dp(290),dp(190),true);
+        final PopupWindow popup=new PopupWindow(panel,dp(310),dp(205),true);
         popup.setBackgroundDrawable(rounded(PAPER,PAPER_DARK,12));
         popup.setOutsideTouchable(false);
         if(Build.VERSION.SDK_INT>=21)popup.setElevation(dp(12));
@@ -884,13 +932,13 @@ public class MainActivity extends Activity {
         resultStamp.setVisibility(View.VISIBLE);
         resultStamp.setAlpha(0f);
         resultStamp.animate().alpha(1f).setDuration(120).start();
-        if(!stay)resultStamp.postDelayed(hideStampRunnable,1050);
+        if(!stay)resultStamp.postDelayed(hideStampRunnable,1100);
     }
 
     final Runnable hideStampRunnable=()->{
         if(resultStamp==null)return;
         resultStamp.animate().cancel();
-        resultStamp.animate().alpha(0f).setDuration(330).withEndAction(()->{
+        resultStamp.animate().alpha(0f).setDuration(400).withEndAction(()->{
             resultStamp.setVisibility(View.GONE);
             resultStamp.setText("");
             resultStamp.setAlpha(1f);
