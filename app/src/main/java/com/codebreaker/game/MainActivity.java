@@ -11,6 +11,7 @@ import android.text.InputFilter;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.WindowManager;
+import android.view.WindowInsets;
 import android.view.inputmethod.InputMethodManager;
 import android.content.Context;
 import android.view.inputmethod.EditorInfo;
@@ -116,8 +117,16 @@ public class MainActivity extends Activity {
         root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL);
         root.setFocusableInTouchMode(true);
         root.setPadding(dp(10),statusBarHeight()+dp(8),dp(10),dp(12));
+        if(Build.VERSION.SDK_INT>=30){
+            root.setOnApplyWindowInsetsListener((v,insets)->{
+                int imeBottom=insets.getInsets(WindowInsets.Type.ime()).bottom;
+                root.setPadding(dp(10),statusBarHeight()+dp(8),dp(10),dp(12)+imeBottom);
+                return insets;
+            });
+        }
         appScroll.addView(root,new ScrollView.LayoutParams(-1,-2));
         setContentView(appScroll);
+        if(Build.VERSION.SDK_INT>=30)root.requestApplyInsets();
 
         LinearLayout header=new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
@@ -189,22 +198,22 @@ public class MainActivity extends Activity {
         TextView optionsTitle=tv("Possible codes",12,true);
         optionsTitle.setTextColor(INK);
         optionsHead.addView(optionsTitle,new LinearLayout.LayoutParams(0,-2,1));
-        Button clearOptions=btn("Clear");
-        clearOptions.setTextColor(accent());
-        clearOptions.setBackground(box(pale(),Color.TRANSPARENT,10));
-        clearOptions.setOnClickListener(v->{candidateOptions.clear();crossedOptions.clear();renderOptions();});
-        optionsHead.addView(clearOptions,new LinearLayout.LayoutParams(dp(62),dp(32)));
-        LinearLayout.LayoutParams ohp=new LinearLayout.LayoutParams(-1,-2); ohp.setMargins(0,dp(7),0,dp(5));
-        work.addView(optionsHead,ohp);
 
-        optionsScroll=new ScrollView(this);
-        optionsScroll.setFillViewport(false);
-        optionsScroll.setBackground(box(Color.rgb(252,251,249),Color.rgb(216,210,202),12));
-        optionsBox=new LinearLayout(this);
-        optionsBox.setOrientation(LinearLayout.VERTICAL);
-        optionsBox.setPadding(dp(6),dp(6),dp(6),dp(6));
-        optionsScroll.addView(optionsBox,new ScrollView.LayoutParams(-1,-2));
-        work.addView(optionsScroll,new LinearLayout.LayoutParams(-1,dp(150)));
+        Button resetBoard=btn("Reset");
+        resetBoard.setTextColor(accent());
+        resetBoard.setBackground(box(pale(),Color.TRANSPARENT,10));
+        resetBoard.setOnClickListener(v->{
+            crossed.clear();
+            candidateOptions.clear();
+            crossedOptions.clear();
+            optionInput.setText("");
+            renderDigits();
+            renderOptions();
+        });
+        optionsHead.addView(resetBoard,new LinearLayout.LayoutParams(dp(68),dp(32)));
+        LinearLayout.LayoutParams ohp=new LinearLayout.LayoutParams(-1,-2);
+        ohp.setMargins(0,dp(7),0,dp(5));
+        work.addView(optionsHead,ohp);
 
         LinearLayout addRow=new LinearLayout(this);
         addRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -223,26 +232,31 @@ public class MainActivity extends Activity {
 
         Button addOption=btn("Add");
         stylePrimary(addOption);
-        LinearLayout.LayoutParams aop=new LinearLayout.LayoutParams(dp(72),dp(42)); aop.setMargins(dp(7),0,0,0);
+        LinearLayout.LayoutParams aop=new LinearLayout.LayoutParams(dp(72),dp(42));
+        aop.setMargins(dp(7),0,0,0);
         addRow.addView(addOption,aop);
-        LinearLayout.LayoutParams arp=new LinearLayout.LayoutParams(-1,-2); arp.setMargins(0,dp(7),0,0);
+        LinearLayout.LayoutParams arp=new LinearLayout.LayoutParams(-1,-2);
+        arp.setMargins(0,0,0,dp(7));
         work.addView(addRow,arp);
 
-        View.OnClickListener addListener=v->addCandidateOption();
-        addOption.setOnClickListener(addListener);
+        optionsScroll=new ScrollView(this);
+        optionsScroll.setFillViewport(false);
+        optionsScroll.setBackground(box(Color.rgb(252,251,249),Color.rgb(216,210,202),12));
+        optionsBox=new LinearLayout(this);
+        optionsBox.setOrientation(LinearLayout.VERTICAL);
+        optionsBox.setPadding(dp(6),dp(6),dp(6),dp(6));
+        optionsScroll.addView(optionsBox,new ScrollView.LayoutParams(-1,-2));
+        work.addView(optionsScroll,new LinearLayout.LayoutParams(-1,dp(132)));
+
+        addOption.setOnClickListener(v->addCandidateOption());
         optionInput.setOnEditorActionListener((v,actionId,event)->{
             if(actionId==EditorInfo.IME_ACTION_DONE){addCandidateOption();return true;}
             return false;
         });
         optionInput.setOnFocusChangeListener((v,hasFocus)->{
-            if(hasFocus) appScroll.postDelayed(()->appScroll.smoothScrollTo(0,root.getHeight()),250);
+            if(hasFocus)scrollOptionInputIntoView();
         });
-
-        Button resetBoard=btn("Reset board");
-        resetBoard.setTextColor(accent()); resetBoard.setBackground(box(pale(),Color.TRANSPARENT,10));
-        resetBoard.setOnClickListener(v->{crossed.clear();candidateOptions.clear();crossedOptions.clear();optionInput.setText("");renderDigits();renderOptions();});
-        LinearLayout.LayoutParams rbp=new LinearLayout.LayoutParams(-1,dp(36)); rbp.setMargins(0,dp(7),0,0);
-        work.addView(resetBoard,rbp);
+        optionInput.setOnClickListener(v->scrollOptionInputIntoView());
 
         renderOptions();
     }
@@ -276,6 +290,23 @@ public class MainActivity extends Activity {
             return true;
         });
         menu.show();
+    }
+
+    void scrollOptionInputIntoView(){
+        appScroll.postDelayed(()->{
+            Rect r=new Rect();
+            optionInput.getDrawingRect(r);
+            root.offsetDescendantRectToMyCoords(optionInput,r);
+            int visibleTop=appScroll.getScrollY();
+            int visibleBottom=visibleTop+appScroll.getHeight();
+            int wantedBottom=r.bottom+dp(26);
+            int wantedTop=Math.max(0,r.top-dp(26));
+            if(wantedBottom>visibleBottom){
+                appScroll.smoothScrollTo(0,wantedBottom-appScroll.getHeight());
+            }else if(wantedTop<visibleTop){
+                appScroll.smoothScrollTo(0,wantedTop);
+            }
+        },350);
     }
 
     void addCandidateOption(){
