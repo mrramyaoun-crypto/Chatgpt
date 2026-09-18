@@ -89,9 +89,9 @@ public class MainActivity extends Activity {
         int total,right;
         Clue(String code,int total,int right){this.code=code;this.total=total;this.right=right;}
         String shortText(){
-            if(total==1&&right==1)return "1 CORRECT · RIGHT";
-            if(total==1&&right==0)return "1 CORRECT · WRONG";
-            if(total==2&&right==0)return "2 CORRECT · MISPLACED";
+            if(total==1&&right==1)return "1 CORRECT · RIGHT PLACE";
+            if(total==1&&right==0)return "1 CORRECT · WRONG PLACE";
+            if(total==2&&right==0)return "2 CORRECT · BOTH MISPLACED";
             return "2 CORRECT · 1 RIGHT + 1 WRONG";
         }
     }
@@ -425,7 +425,7 @@ public class MainActivity extends Activity {
         cluesBox=new LinearLayout(this);
         cluesBox.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);
-        cp.setMargins(0,dp(6),0,0);
+        cp.setMargins(0,dp(11),0,0);
         paperPane.addView(cluesBox,cp);
 
         machine=new LinearLayout(this);
@@ -767,7 +767,7 @@ public class MainActivity extends Activity {
         LinearLayout card=new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setGravity(Gravity.CENTER);
-        card.setPadding(dp(5),dp(3),dp(5),dp(3));
+        card.setPadding(dp(5),dp(6),dp(5),dp(4));
         card.setBackground(new AgedPaperDrawable(8,true));
 
         TextView code=typeText("",wide?36:34,true);
@@ -778,7 +778,8 @@ public class MainActivity extends Activity {
         clueCodeViews.add(code);
         card.addView(code,new LinearLayout.LayoutParams(-1,0,1.35f));
 
-        int ruleSize=c.shortText().length()>23?(wide?9:7):(wide?10:9);
+        int clueLen=c.shortText().length();
+        int ruleSize=wide?(clueLen>26?9:11):(clueLen>26?7:8);
         TextView rule=typeText(c.shortText(),ruleSize,true);
         rule.setTextColor(FADED);
         rule.setGravity(Gravity.CENTER);
@@ -801,16 +802,16 @@ public class MainActivity extends Activity {
                 int clueIndex=rowIndex*2+col;
                 Clue c=puzzle.clues.get(clueIndex);
                 LinearLayout card=makeClueCard(c,false);
-                LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(70),1f);
+                LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(74),1f);
                 lp.setMargins(col==0?0:dp(2),0,col==0?dp(2):0,dp(4));
                 row.addView(card,lp);
             }
 
-            cluesBox.addView(row,new LinearLayout.LayoutParams(-1,dp(74)));
+            cluesBox.addView(row,new LinearLayout.LayoutParams(-1,dp(78)));
         }
 
         LinearLayout finalCard=makeClueCard(puzzle.clues.get(4),true);
-        LinearLayout.LayoutParams finalLp=new LinearLayout.LayoutParams(-1,dp(66));
+        LinearLayout.LayoutParams finalLp=new LinearLayout.LayoutParams(-1,dp(70));
         finalLp.setMargins(0,0,0,dp(2));
         cluesBox.addView(finalCard,finalLp);
     }
