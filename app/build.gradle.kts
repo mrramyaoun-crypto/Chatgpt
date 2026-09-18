@@ -10,7 +10,7 @@ android {
         applicationId = "com.codebreaker.game"
         minSdk = 24
         targetSdk = 35
-        versionCode = 9
-        versionName = "7.0"
+        versionCode = 10
+        versionName = "8.0"
     }
 }
