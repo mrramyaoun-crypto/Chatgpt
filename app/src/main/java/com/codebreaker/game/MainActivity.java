@@ -27,6 +27,7 @@ import android.view.HapticFeedbackConstants;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.PopupWindow;
 import android.widget.ScrollView;
@@ -75,7 +76,9 @@ public class MainActivity extends Activity {
     LinearLayout root, cluesBox, candidateBox, workingSlots, machine;
     Button newCipherBtn, difficultyBtn, assistBtn, soundBtn, resetBtn, decipherBtn;
     TextView resultStamp;
-    final StringBuilder working=new StringBuilder();
+    FrameLayout answerStage;
+    final char[] answerSlots=new char[]{'\0','\0','\0','\0'};
+    int activeSlot=0;
 
     String mode="normal";
     Puzzle puzzle;
@@ -141,15 +144,16 @@ public class MainActivity extends Activity {
 
     StateListDrawable keyBackground(boolean eliminatedKey){
         StateListDrawable state=new StateListDrawable();
+
         GradientDrawable pressed=new GradientDrawable();
-        pressed.setShape(GradientDrawable.OVAL);
-        pressed.setColor(eliminatedKey?Color.rgb(78,57,43):Color.rgb(198,174,126));
-        pressed.setStroke(dp(3),Color.rgb(22,16,12));
+        pressed.setColor(eliminatedKey?Color.rgb(74,57,45):Color.rgb(188,158,103));
+        pressed.setCornerRadius(dp(7));
+        pressed.setStroke(dp(3),Color.rgb(27,19,14));
 
         GradientDrawable normal=new GradientDrawable();
-        normal.setShape(GradientDrawable.OVAL);
-        normal.setColor(eliminatedKey?Color.rgb(105,82,62):IVORY);
-        normal.setStroke(dp(3),eliminatedKey?Color.rgb(51,34,26):Color.rgb(58,42,30));
+        normal.setColor(eliminatedKey?Color.rgb(101,79,61):IVORY);
+        normal.setCornerRadius(dp(7));
+        normal.setStroke(dp(3),eliminatedKey?Color.rgb(50,34,26):Color.rgb(54,39,29));
 
         state.addState(new int[]{android.R.attr.state_pressed},pressed);
         state.addState(new int[]{},normal);
@@ -222,10 +226,11 @@ public class MainActivity extends Activity {
             p.setStyle(Paint.Style.FILL);
             p.setColor(WOOD);
             c.drawRoundRect(r,dp(16),dp(16),p);
-            p.setColor(Color.argb(50,235,187,105));
-            for(int i=0;i<8;i++){
-                float y=r.top+(i+1)*r.height()/9f;
-                c.drawRect(r.left+dp(8),y,r.right-dp(8),y+dp(1),p);
+            p.setColor(Color.argb(24,235,187,105));
+            for(int i=0;i<28;i++){
+                float x=r.left+((i*53+19)%Math.max(1,(int)r.width()));
+                float y=r.top+((i*37+11)%Math.max(1,(int)r.height()));
+                c.drawCircle(x,y,dp(.65f),p);
             }
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(dp(2));
@@ -249,17 +254,18 @@ public class MainActivity extends Activity {
     void buildUi(){
         appScroll=new ScrollView(this);
         appScroll.setFillViewport(true);
+        appScroll.setClipToPadding(false);
         appScroll.setBackgroundColor(WOOD_DARK);
 
         root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(8),statusBarHeight()+dp(7),dp(8),dp(10));
+        root.setPadding(dp(8),statusBarHeight()+dp(6),dp(8),dp(24));
         appScroll.addView(root,new ScrollView.LayoutParams(-1,-2));
         setContentView(appScroll);
 
         LinearLayout paperPane=new LinearLayout(this);
         paperPane.setOrientation(LinearLayout.VERTICAL);
-        paperPane.setPadding(dp(8),dp(8),dp(8),dp(7));
+        paperPane.setPadding(dp(7),dp(7),dp(7),dp(5));
         paperPane.setBackground(new AgedPaperDrawable(14,false));
         root.addView(paperPane,new LinearLayout.LayoutParams(-1,-2));
 
@@ -270,8 +276,8 @@ public class MainActivity extends Activity {
         difficultyBtn=oldButton("+");
         difficultyBtn.setTextSize(20);
         difficultyBtn.setBackground(splitShape(Color.rgb(92,57,34),BRASS,false));
-        split.addView(newCipherBtn,new LinearLayout.LayoutParams(0,dp(40),1));
-        split.addView(difficultyBtn,new LinearLayout.LayoutParams(dp(48),dp(40)));
+        split.addView(newCipherBtn,new LinearLayout.LayoutParams(0,dp(38),1));
+        split.addView(difficultyBtn,new LinearLayout.LayoutParams(dp(48),dp(38)));
         paperPane.addView(split,new LinearLayout.LayoutParams(-1,-2));
         newCipherBtn.setOnClickListener(v->{pressAnim(v);playSound(S_RETURN);startPuzzle();});
         difficultyBtn.setOnClickListener(v->{pressAnim(v);playSound(S_KEY);showDifficultyPopup();});
@@ -279,15 +285,15 @@ public class MainActivity extends Activity {
         cluesBox=new LinearLayout(this);
         cluesBox.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);
-        cp.setMargins(0,dp(7),0,0);
+        cp.setMargins(0,dp(6),0,0);
         paperPane.addView(cluesBox,cp);
 
         machine=new LinearLayout(this);
         machine.setOrientation(LinearLayout.VERTICAL);
-        machine.setPadding(dp(9),dp(8),dp(9),dp(9));
+        machine.setPadding(dp(8),dp(6),dp(8),dp(8));
         machine.setBackground(new WoodDrawable());
         LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(-1,-2);
-        mp.setMargins(0,dp(7),0,0);
+        mp.setMargins(0,dp(6),0,0);
         root.addView(machine,mp);
 
         LinearLayout utilityRow=new LinearLayout(this);
@@ -295,7 +301,8 @@ public class MainActivity extends Activity {
         Space spacer=new Space(this);
         utilityRow.addView(spacer,new LinearLayout.LayoutParams(0,dp(30),1));
 
-        assistBtn=miniUtility("?");
+        assistBtn=miniUtility("HINT");
+        assistBtn.setTextSize(8);
         resetBtn=miniUtility("↺");
         soundBtn=miniUtility("♪");
         utilityRow.addView(assistBtn,new LinearLayout.LayoutParams(dp(42),dp(32)));
@@ -315,28 +322,42 @@ public class MainActivity extends Activity {
             if(soundOn)playSound(S_KEY);
         });
 
+        answerStage=new FrameLayout(this);
         workingSlots=new LinearLayout(this);
         workingSlots.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams wsp=new LinearLayout.LayoutParams(-1,dp(58));
-        wsp.setMargins(0,dp(3),0,dp(6));
-        machine.addView(workingSlots,wsp);
+        answerStage.addView(workingSlots,new FrameLayout.LayoutParams(-1,dp(50),Gravity.CENTER));
 
-        resultStamp=typeText("",13,true);
+        resultStamp=typeText("",12,true);
         resultStamp.setGravity(Gravity.CENTER);
         resultStamp.setTextColor(RED_INK);
         resultStamp.setVisibility(View.GONE);
-        machine.addView(resultStamp,new LinearLayout.LayoutParams(-1,dp(24)));
+        FrameLayout.LayoutParams rsp=new FrameLayout.LayoutParams(-1,dp(40),Gravity.CENTER);
+        rsp.setMargins(dp(14),0,dp(14),0);
+        answerStage.addView(resultStamp,rsp);
+
+        LinearLayout.LayoutParams asp=new LinearLayout.LayoutParams(-1,dp(52));
+        asp.setMargins(0,dp(1),0,dp(2));
+        machine.addView(answerStage,asp);
+
+        decipherBtn=oldButton("DECIPHER");
+        decipherBtn.setTextSize(13);
+        decipherBtn.setTextColor(Color.rgb(45,27,18));
+        decipherBtn.setBackground(rounded(BRASS_LIGHT,Color.rgb(75,47,25),8));
+        LinearLayout.LayoutParams dcp=new LinearLayout.LayoutParams(-1,dp(39));
+        dcp.setMargins(dp(2),0,dp(2),dp(5));
+        machine.addView(decipherBtn,dcp);
+        decipherBtn.setOnClickListener(v->{pressAnim(v);checkWorking();});
 
         candidateScroll=new ScrollView(this);
         candidateScroll.setFillViewport(false);
         candidateScroll.setNestedScrollingEnabled(true);
-        candidateScroll.setBackground(new AgedPaperDrawable(10,true));
+        candidateScroll.setBackground(new AgedPaperDrawable(8,true));
         candidateBox=new LinearLayout(this);
         candidateBox.setOrientation(LinearLayout.VERTICAL);
-        candidateBox.setPadding(dp(5),dp(4),dp(5),dp(4));
+        candidateBox.setPadding(dp(5),dp(3),dp(5),dp(3));
         candidateScroll.addView(candidateBox,new ScrollView.LayoutParams(-1,-2));
-        LinearLayout.LayoutParams csp=new LinearLayout.LayoutParams(-1,dp(96));
-        csp.setMargins(0,dp(4),0,dp(7));
+        LinearLayout.LayoutParams csp=new LinearLayout.LayoutParams(-1,dp(56));
+        csp.setMargins(0,0,0,dp(5));
         machine.addView(candidateScroll,csp);
 
         addKeypadRow(new String[]{"1","2","3"});
@@ -344,19 +365,9 @@ public class MainActivity extends Activity {
         addKeypadRow(new String[]{"7","8","9"});
         addActionRow();
 
-        decipherBtn=oldButton("DECIPHER");
-        decipherBtn.setTextSize(14);
-        decipherBtn.setTextColor(Color.rgb(45,27,18));
-        decipherBtn.setBackground(rounded(BRASS_LIGHT,Color.rgb(75,47,25),11));
-        LinearLayout.LayoutParams dcp=new LinearLayout.LayoutParams(-1,dp(43));
-        dcp.setMargins(0,dp(5),0,0);
-        machine.addView(decipherBtn,dcp);
-        decipherBtn.setOnClickListener(v->{pressAnim(v);checkWorking();});
-
         renderWorking();
         renderCandidates();
     }
-
     Button miniUtility(String text){
         Button b=oldButton(text);
         b.setTextSize(16);
@@ -372,45 +383,57 @@ public class MainActivity extends Activity {
             int d=Integer.parseInt(label);
             Button key=numberKey(d);
             digitKeys[d]=key;
-            LinearLayout.LayoutParams kp=new LinearLayout.LayoutParams(0,dp(47),1);
-            kp.setMargins(dp(7),dp(2),dp(7),dp(2));
+            LinearLayout.LayoutParams kp=new LinearLayout.LayoutParams(dp(82),dp(43));
+            kp.setMargins(dp(5),dp(2),dp(5),dp(2));
             row.addView(key,kp);
         }
-        machine.addView(row,new LinearLayout.LayoutParams(-1,dp(51)));
+        machine.addView(row,new LinearLayout.LayoutParams(-1,dp(47)));
     }
-
     void addActionRow(){
         LinearLayout row=new LinearLayout(this);
         row.setGravity(Gravity.CENTER);
 
-        Button back=oldButton("⌫");
-        back.setTextSize(20);
+        Button back=mechanicalActionKey("⌫");
+        back.setTextSize(18);
         back.setOnClickListener(v->{pressAnim(v);playSound(S_KEY);backspace();});
 
         Button zero=numberKey(0);
         digitKeys[0]=zero;
 
-        Button ret=oldButton("RETURN ↵");
-        ret.setTextSize(11);
+        Button ret=mechanicalActionKey("RETURN ↵");
+        ret.setTextSize(9);
         ret.setOnClickListener(v->{pressAnim(v);saveCandidate();});
 
-        LinearLayout.LayoutParams lp1=new LinearLayout.LayoutParams(0,dp(45),1);
-        lp1.setMargins(dp(7),dp(1),dp(5),dp(1));
-        LinearLayout.LayoutParams lp2=new LinearLayout.LayoutParams(0,dp(47),1);
-        lp2.setMargins(dp(5),0,dp(5),0);
-        LinearLayout.LayoutParams lp3=new LinearLayout.LayoutParams(0,dp(45),1.2f);
-        lp3.setMargins(dp(5),dp(1),dp(7),dp(1));
-        row.addView(back,lp1);
-        row.addView(zero,lp2);
-        row.addView(ret,lp3);
-        machine.addView(row,new LinearLayout.LayoutParams(-1,dp(49)));
+        LinearLayout.LayoutParams p1=new LinearLayout.LayoutParams(dp(82),dp(43));
+        p1.setMargins(dp(5),dp(2),dp(5),dp(2));
+        LinearLayout.LayoutParams p2=new LinearLayout.LayoutParams(dp(82),dp(43));
+        p2.setMargins(dp(5),dp(2),dp(5),dp(2));
+        LinearLayout.LayoutParams p3=new LinearLayout.LayoutParams(dp(82),dp(43));
+        p3.setMargins(dp(5),dp(2),dp(5),dp(2));
+        row.addView(back,p1);
+        row.addView(zero,p2);
+        row.addView(ret,p3);
+        machine.addView(row,new LinearLayout.LayoutParams(-1,dp(47)));
     }
 
+    Button mechanicalActionKey(String text){
+        Button b=new Button(this);
+        b.setAllCaps(false);
+        b.setText(text);
+        b.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);
+        b.setTextColor(INK);
+        b.setMinHeight(0);
+        b.setMinWidth(0);
+        b.setPadding(dp(2),0,dp(2),0);
+        b.setBackground(keyBackground(false));
+        if(Build.VERSION.SDK_INT>=21)b.setElevation(dp(4));
+        return b;
+    }
     Button numberKey(int digit){
         final char d=(char)('0'+digit);
         Button key=new Button(this);
         key.setText(String.valueOf(d));
-        key.setTextSize(19);
+        key.setTextSize(18);
         key.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);
         key.setTextColor(INK);
         key.setAllCaps(false);
@@ -423,10 +446,9 @@ public class MainActivity extends Activity {
             pressAnim(v);
             v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
             playSound(S_KEY);
-            if(working.length()<4){
-                working.append(d);
-                renderWorking();
-            }
+            answerSlots[activeSlot]=d;
+            advanceActiveSlot();
+            renderWorking();
         });
         key.setOnLongClickListener(v->{
             v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
@@ -436,6 +458,14 @@ public class MainActivity extends Activity {
         return key;
     }
 
+    void advanceActiveSlot(){
+        for(int i=activeSlot+1;i<4;i++){
+            if(answerSlots[i]=='\0'){activeSlot=i;return;}
+        }
+        for(int i=0;i<activeSlot;i++){
+            if(answerSlots[i]=='\0'){activeSlot=i;return;}
+        }
+    }
     void pressAnim(View v){
         v.animate().scaleX(.93f).scaleY(.93f).setDuration(45).withEndAction(
                 ()->v.animate().scaleX(1f).scaleY(1f).setDuration(70).start()
@@ -489,66 +519,77 @@ public class MainActivity extends Activity {
     void renderWorking(){
         workingSlots.removeAllViews();
         for(int i=0;i<4;i++){
-            TextView slot=typeText("·",24,true);
+            final int slotIndex=i;
+            TextView slot=typeText("·",27,true);
             slot.setGravity(Gravity.CENTER);
-            slot.setTextColor(INK);
-            slot.setBackground(rounded(Color.rgb(204,174,113),Color.rgb(79,48,29),7));
-            if(i<working.length())slot.setText(styledDigits(String.valueOf(working.charAt(i)),false));
-            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(58),dp(50));
-            lp.setMargins(dp(5),dp(2),dp(5),dp(2));
+            slot.setTextColor(i==activeSlot?BRASS_LIGHT:Color.rgb(230,205,151));
+            slot.setBackgroundColor(Color.TRANSPARENT);
+            if(answerSlots[i]!='\0'){
+                slot.setText(styledDigits(String.valueOf(answerSlots[i]),false));
+                if(i==activeSlot)slot.setTextColor(BRASS_LIGHT);
+            }
+            slot.setOnClickListener(v->{
+                activeSlot=slotIndex;
+                playSound(S_KEY);
+                renderWorking();
+            });
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(58),dp(46));
+            lp.setMargins(dp(4),0,dp(4),0);
             workingSlots.addView(slot,lp);
         }
     }
-
     void renderCandidates(){
         candidateBox.removeAllViews();
         if(candidates.isEmpty()){
-            TextView empty=typeText("·   ·   ·   ·",16,false);
+            TextView empty=typeText("·   ·   ·   ·",13,false);
             empty.setTextColor(Color.rgb(146,107,67));
             empty.setGravity(Gravity.CENTER);
-            candidateBox.addView(empty,new LinearLayout.LayoutParams(-1,dp(42)));
+            candidateBox.addView(empty,new LinearLayout.LayoutParams(-1,dp(32)));
             return;
         }
-        for(int i=0;i<candidates.size();i+=2){
+
+        for(int i=0;i<candidates.size();i+=4){
             LinearLayout row=new LinearLayout(this);
-            row.setGravity(Gravity.CENTER);
-            for(int j=0;j<2;j++){
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            for(int j=0;j<4;j++){
                 int idx=i+j;
                 if(idx<candidates.size()){
                     final String value=candidates.get(idx);
                     boolean crossed=crossedCandidates.contains(value);
-                    TextView strip=typeText("",18,true);
-                    strip.setGravity(Gravity.CENTER);
-                    strip.setText(styledDigits(value,crossed));
-                    strip.setBackground(new AgedPaperDrawable(7,true));
-                    strip.setOnClickListener(v->{
+                    TextView item=typeText("",13,true);
+                    item.setGravity(Gravity.CENTER);
+                    item.setText(styledDigits(value+",",crossed));
+                    item.setAlpha(crossed?.28f:1f);
+                    item.setBackgroundColor(Color.TRANSPARENT);
+                    item.setOnClickListener(v->{
                         playSound(S_SCRATCH);
                         if(crossedCandidates.contains(value))crossedCandidates.remove(value);
                         else crossedCandidates.add(value);
                         renderCandidates();
                     });
-                    strip.setOnLongClickListener(v->{
+                    item.setOnLongClickListener(v->{
                         playSound(S_RETURN);
                         candidates.remove(value);
                         crossedCandidates.remove(value);
                         renderCandidates();
                         return true;
                     });
-                    LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(38),1);
-                    lp.setMargins(j==0?0:dp(3),dp(2),j==1?0:dp(3),dp(2));
-                    row.addView(strip,lp);
+                    row.addView(item,new LinearLayout.LayoutParams(0,dp(30),1));
                 }else{
-                    Space sp=new Space(this);
-                    row.addView(sp,new LinearLayout.LayoutParams(0,dp(38),1));
+                    Space space=new Space(this);
+                    row.addView(space,new LinearLayout.LayoutParams(0,dp(30),1));
                 }
             }
             candidateBox.addView(row,new LinearLayout.LayoutParams(-1,-2));
         }
     }
-
     void saveCandidate(){
-        if(working.length()==0){playSound(S_REJECT);flashStamp("NO CIPHER",false);return;}
-        String value=working.toString();
+        String value=currentPartial();
+        if(value.length()==0){
+            playSound(S_REJECT);
+            flashStamp("NO CIPHER",false);
+            return;
+        }
         if(!candidates.contains(value)){
             candidates.add(value);
             Collections.sort(candidates,new Comparator<String>(){
@@ -560,20 +601,43 @@ public class MainActivity extends Activity {
                 }
             });
         }
-        working.setLength(0);
+        clearAnswerSlots();
         renderWorking();
         renderCandidates();
         candidateScroll.post(()->candidateScroll.fullScroll(View.FOCUS_DOWN));
         playSound(S_RETURN);
     }
 
-    void backspace(){
-        if(working.length()>0){
-            working.deleteCharAt(working.length()-1);
-            renderWorking();
-        }
+    String currentPartial(){
+        StringBuilder b=new StringBuilder();
+        for(char c:answerSlots)if(c!='\0')b.append(c);
+        return b.toString();
     }
 
+    String currentGuess(){
+        for(char c:answerSlots)if(c=='\0')return null;
+        return new String(answerSlots);
+    }
+
+    void clearAnswerSlots(){
+        Arrays.fill(answerSlots,'\0');
+        activeSlot=0;
+    }
+
+    void backspace(){
+        if(answerSlots[activeSlot]!='\0'){
+            answerSlots[activeSlot]='\0';
+        }else{
+            for(int i=activeSlot-1;i>=0;i--){
+                if(answerSlots[i]!='\0'){
+                    answerSlots[i]='\0';
+                    activeSlot=i;
+                    break;
+                }
+            }
+        }
+        renderWorking();
+    }
     void toggleEliminated(char d){
         if(eliminated.contains(d))eliminated.remove(d);
         else eliminated.add(d);
@@ -588,8 +652,8 @@ public class MainActivity extends Activity {
             char c=(char)('0'+d);
             boolean off=eliminated.contains(c);
             k.setBackground(keyBackground(off));
-            k.setTextColor(off?Color.rgb(207,174,132):INK);
-            k.setText(off?"×"+c:String.valueOf(c));
+            k.setTextColor(off?Color.rgb(190,154,118):INK);
+            k.setText(styledDigits(String.valueOf(c),false));
         }
         for(int i=0;i<clueCodeViews.size()&&i<visibleClues.size();i++){
             clueCodeViews.get(i).setText(styledDigits(visibleClues.get(i).code,false));
@@ -628,14 +692,14 @@ public class MainActivity extends Activity {
             rule.setGravity(Gravity.CENTER_VERTICAL);
             card.addView(rule,new LinearLayout.LayoutParams(0,dp(40),1));
 
-            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(49));
-            lp.setMargins(0,0,0,dp(4));
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(44));
+            lp.setMargins(0,0,0,dp(3));
             cluesBox.addView(card,lp);
         }
     }
 
     void resetBoard(){
-        working.setLength(0);
+        clearAnswerSlots();
         eliminated.clear();
         candidates.clear();
         crossedCandidates.clear();
@@ -651,7 +715,7 @@ public class MainActivity extends Activity {
         difficultyBtn.setEnabled(false);
         assistBtn.setEnabled(false);
         decipherBtn.setEnabled(false);
-        working.setLength(0);
+        clearAnswerSlots();
         eliminated.clear();
         candidates.clear();
         crossedCandidates.clear();
@@ -674,7 +738,7 @@ public class MainActivity extends Activity {
                 newCipherBtn.setEnabled(true);
                 difficultyBtn.setEnabled(true);
                 assistBtn.setEnabled(true);
-                assistBtn.setText("?");
+                assistBtn.setText("HINT");
                 decipherBtn.setEnabled(true);
                 appScroll.post(()->appScroll.smoothScrollTo(0,0));
             });
@@ -696,7 +760,7 @@ public class MainActivity extends Activity {
         int n=mode.equals("easy")?Math.min(2,falseDigits.size()):Math.min(1,falseDigits.size());
         for(int i=0;i<n;i++)eliminated.add(falseDigits.get(i));
         assistUsed=true;
-        assistBtn.setText("·");
+        assistBtn.setText("HINT");
         assistBtn.setEnabled(false);
         playSound(S_SCRATCH);
         refreshAllMarks();
@@ -704,20 +768,23 @@ public class MainActivity extends Activity {
 
     void checkWorking(){
         if(puzzle==null||solved)return;
-        if(working.length()!=4){
+
+        String guess=currentGuess();
+        if(guess==null){
             playSound(S_REJECT);
             flashStamp("4 DIGITS REQUIRED",false);
             return;
         }
+
         HashSet<Character> unique=new HashSet<>();
-        for(int i=0;i<working.length();i++)unique.add(working.charAt(i));
+        for(char c:answerSlots)unique.add(c);
         if(unique.size()!=4){
             playSound(S_REJECT);
             flashStamp("NO REPEATS",false);
             return;
         }
+
         attempted=true;
-        String guess=working.toString();
         if(guess.equals(puzzle.secret)){
             solved=true;
             decipherBtn.setEnabled(false);
@@ -728,28 +795,36 @@ public class MainActivity extends Activity {
             flashStamp("CIPHER REJECTED",false);
         }
     }
-
     void flashStamp(String text,boolean stay){
+        resultStamp.removeCallbacks(hideStampRunnable);
+        resultStamp.animate().cancel();
         resultStamp.setText(text);
         resultStamp.setVisibility(View.VISIBLE);
         resultStamp.setAlpha(0f);
-        resultStamp.animate().alpha(1f).setDuration(110).start();
-        if(!stay){
-            resultStamp.removeCallbacks(hideStampRunnable);
-            resultStamp.postDelayed(hideStampRunnable,1200);
-        }
+        resultStamp.animate().alpha(1f).setDuration(120).start();
+
+        if(!stay)resultStamp.postDelayed(hideStampRunnable,1100);
     }
 
-    final Runnable hideStampRunnable=()->hideStamp();
+    final Runnable hideStampRunnable=()->{
+        if(resultStamp==null)return;
+        resultStamp.animate().cancel();
+        resultStamp.animate().alpha(0f).setDuration(400).withEndAction(()->{
+            resultStamp.setVisibility(View.GONE);
+            resultStamp.setText("");
+            resultStamp.setAlpha(1f);
+        }).start();
+    };
 
     void hideStamp(){
         if(resultStamp!=null){
             resultStamp.removeCallbacks(hideStampRunnable);
+            resultStamp.animate().cancel();
             resultStamp.setVisibility(View.GONE);
             resultStamp.setText("");
+            resultStamp.setAlpha(1f);
         }
     }
-
     Score score(String secret,String clue){
         int total=0,right=0;
         for(int i=0;i<4;i++){
@@ -884,45 +959,62 @@ public class MainActivity extends Activity {
         soundPool.submit(()->{
             try{
                 int sr=22050;
-                int ms=(type==S_SUCCESS)?620:(type==S_RETURN?170:(type==S_REJECT?190:(type==S_SCRATCH?95:70)));
-                int n=sr*ms/1000;
-                short[] pcm=new short[n];
-                Random r=new Random(System.nanoTime()+type*97L);
-                for(int i=0;i<n;i++){
+                int ms=(type==S_SUCCESS)?520:(type==S_RETURN?280:(type==S_REJECT?120:(type==S_SCRATCH?95:55)));
+                int samples=sr*ms/1000;
+                short[] pcm=new short[samples];
+                Random r=new Random(System.nanoTime()+type*131L);
+                double previousNoise=0;
+
+                for(int i=0;i<samples;i++){
                     double t=i/(double)sr;
+                    double noise=r.nextDouble()*2-1;
+                    double click=noise-previousNoise;
+                    previousNoise=noise;
                     double x=0;
+
                     if(type==S_KEY){
-                        double env=Math.exp(-t*52);
-                        x=(r.nextDouble()*2-1)*0.65*env + Math.sin(2*Math.PI*1550*t)*0.28*env;
+                        double e=Math.exp(-t*95);
+                        x=click*.55*e
+                                +Math.sin(2*Math.PI*2400*t)*.22*Math.exp(-t*80)
+                                +Math.sin(2*Math.PI*3400*t)*.12*Math.exp(-t*110);
                     }else if(type==S_RETURN){
-                        double env=Math.exp(-t*20);
-                        x=(r.nextDouble()*2-1)*0.34*env + Math.sin(2*Math.PI*115*t)*0.48*env;
-                        if(t>.075){
+                        double e=Math.exp(-t*80);
+                        x=click*.48*e+Math.sin(2*Math.PI*2200*t)*.16*e;
+                        if(t>.075&&t<.17){
                             double u=t-.075;
-                            x+=Math.sin(2*Math.PI*780*u)*0.20*Math.exp(-u*24);
+                            x+=click*.16*Math.exp(-u*16);
+                        }
+                        if(t>.15){
+                            double u=t-.15;
+                            x+=Math.sin(2*Math.PI*1760*u)*.24*Math.exp(-u*13)
+                                    +Math.sin(2*Math.PI*2340*u)*.12*Math.exp(-u*15);
                         }
                     }else if(type==S_SCRATCH){
-                        double env=Math.exp(-t*27);
-                        x=(r.nextDouble()*2-1)*0.45*env;
+                        x=click*.32*Math.exp(-t*28);
                     }else if(type==S_REJECT){
-                        double env=Math.exp(-t*12);
-                        x=Math.sin(2*Math.PI*92*t)*0.46*env;
-                        if(t>.075){
-                            double u=t-.075;
-                            x+=Math.sin(2*Math.PI*74*u)*0.36*Math.exp(-u*15);
+                        double e1=Math.exp(-t*90);
+                        x=click*.42*e1+Math.sin(2*Math.PI*1900*t)*.13*e1;
+                        if(t>.055){
+                            double u=t-.055;
+                            double e2=Math.exp(-u*95);
+                            x+=(noise-previousNoise)*.34*e2+Math.sin(2*Math.PI*1500*u)*.12*e2;
                         }
                     }else if(type==S_SUCCESS){
-                        double env=Math.exp(-t*5.5);
-                        x=Math.sin(2*Math.PI*1180*t)*0.23*env + Math.sin(2*Math.PI*1575*t)*0.18*env;
-                        if(t<.08)x+=(r.nextDouble()*2-1)*0.28*Math.exp(-t*35);
-                        if(t>.18){
-                            double u=t-.18;
-                            x+=Math.sin(2*Math.PI*1420*u)*0.27*Math.exp(-u*7);
-                            x+=Math.sin(2*Math.PI*1840*u)*0.16*Math.exp(-u*8);
+                        x=click*.38*Math.exp(-t*85);
+                        if(t>.09){
+                            double u=t-.09;
+                            x+=Math.sin(2*Math.PI*1760*u)*.26*Math.exp(-u*6.8)
+                                    +Math.sin(2*Math.PI*2348*u)*.17*Math.exp(-u*7.3);
+                        }
+                        if(t>.255){
+                            double u=t-.255;
+                            x+=Math.sin(2*Math.PI*2093*u)*.22*Math.exp(-u*8)
+                                    +Math.sin(2*Math.PI*2790*u)*.11*Math.exp(-u*9);
                         }
                     }
+
                     x=Math.max(-1,Math.min(1,x));
-                    pcm[i]=(short)(x*15000);
+                    pcm[i]=(short)(x*14500);
                 }
 
                 AudioAttributes attrs=new AudioAttributes.Builder()
@@ -936,14 +1028,13 @@ public class MainActivity extends Activity {
                         .build();
                 AudioTrack track=new AudioTrack(attrs,fmt,pcm.length*2,AudioTrack.MODE_STATIC,AudioManager.AUDIO_SESSION_ID_GENERATE);
                 track.write(pcm,0,pcm.length);
-                track.setVolume(type==S_SUCCESS?.72f:.46f);
+                track.setVolume(type==S_SUCCESS?.72f:.50f);
                 track.play();
-                Thread.sleep(ms+35L);
+                Thread.sleep(ms+30L);
                 track.release();
             }catch(Exception ignored){}
         });
     }
-
     @Override protected void onDestroy(){
         puzzlePool.shutdownNow();
         soundPool.shutdownNow();
