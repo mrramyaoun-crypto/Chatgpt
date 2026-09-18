@@ -10,7 +10,7 @@ import android.os.Bundle;
 import android.text.InputFilter;
 import android.text.InputType;
 import android.view.Gravity;
-import android.view.WindowManager;
+import android.view.WindowManager;\nimport android.view.inputmethod.InputMethodManager;\nimport android.content.Context;\nimport android.view.inputmethod.EditorInfo;
 import android.view.View;
 import android.widget.*;
 import java.util.*;
@@ -26,11 +26,13 @@ public class MainActivity extends Activity {
     final ExecutorService pool=Executors.newSingleThreadExecutor();
     final HashSet<Character> crossed=new HashSet<>();
 
-    ScrollView appScroll;
-    LinearLayout root, cluesBox, digitRow;
-    EditText guess, notes;
+    ScrollView appScroll, optionsScroll;
+    LinearLayout root, cluesBox, digitRow, optionsBox;
+    EditText guess, optionInput;
     TextView status, modeInfo;
     Button hintBtn, newBtn, difficultyBtn;
+    final ArrayList<String> candidateOptions=new ArrayList<>();
+    final HashSet<String> crossedOptions=new HashSet<>();
     String mode="normal";
     Puzzle puzzle;
     boolean hintUsed=false, attempted=false;
@@ -179,36 +181,67 @@ public class MainActivity extends Activity {
         digitRow=new LinearLayout(this); digitRow.setGravity(Gravity.CENTER);
         work.addView(digitRow,new LinearLayout.LayoutParams(-1,dp(38))); renderDigits();
 
-        notes=new EditText(this); notes.setHint("Notes / deductions…"); notes.setGravity(Gravity.TOP|Gravity.START); notes.setTextSize(14);
-        notes.setTextColor(INK); notes.setHintTextColor(Color.rgb(124,137,151));
-        notes.setBackground(box(Color.rgb(252,253,255),Color.rgb(216,224,233),11));
-        notes.setPadding(dp(9),dp(7),dp(9),dp(7));
-        notes.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        LinearLayout.LayoutParams notesLp=new LinearLayout.LayoutParams(-1,dp(96)); notesLp.setMargins(0,dp(7),0,dp(5));
-        work.addView(notes,notesLp);
-        notes.setOnFocusChangeListener((v,hasFocus)->{
-            if(hasFocus){
-                appScroll.postDelayed(()->{
-                    Rect r=new Rect();
-                    notes.getDrawingRect(r);
-                    root.offsetDescendantRectToMyCoords(notes,r);
-                    int target=Math.max(0,r.bottom-appScroll.getHeight()+dp(28));
-                    appScroll.smoothScrollTo(0,target);
-                },300);
-            }
-        });
-        notes.setOnClickListener(v->appScroll.postDelayed(()->{
-            Rect r=new Rect();
-            notes.getDrawingRect(r);
-            root.offsetDescendantRectToMyCoords(notes,r);
-            int target=Math.max(0,r.bottom-appScroll.getHeight()+dp(28));
-            appScroll.smoothScrollTo(0,target);
-        },250));
+        LinearLayout optionsHead=new LinearLayout(this);
+        optionsHead.setGravity(Gravity.CENTER_VERTICAL);
+        TextView optionsTitle=tv("Possible codes",12,true);
+        optionsTitle.setTextColor(INK);
+        optionsHead.addView(optionsTitle,new LinearLayout.LayoutParams(0,-2,1));
+        Button clearOptions=btn("Clear");
+        clearOptions.setTextColor(accent());
+        clearOptions.setBackground(box(pale(),Color.TRANSPARENT,10));
+        clearOptions.setOnClickListener(v->{candidateOptions.clear();crossedOptions.clear();renderOptions();});
+        optionsHead.addView(clearOptions,new LinearLayout.LayoutParams(dp(62),dp(32)));
+        LinearLayout.LayoutParams ohp=new LinearLayout.LayoutParams(-1,-2); ohp.setMargins(0,dp(7),0,dp(5));
+        work.addView(optionsHead,ohp);
 
-        Button clear=btn("Clear scratchpad");
-        clear.setTextColor(accent()); clear.setBackground(box(pale(),Color.TRANSPARENT,10));
-        clear.setOnClickListener(v->{crossed.clear();notes.setText("");renderDigits();});
-        work.addView(clear,new LinearLayout.LayoutParams(-1,dp(38)));
+        optionsScroll=new ScrollView(this);
+        optionsScroll.setFillViewport(false);
+        optionsScroll.setBackground(box(Color.rgb(252,251,249),Color.rgb(216,210,202),12));
+        optionsBox=new LinearLayout(this);
+        optionsBox.setOrientation(LinearLayout.VERTICAL);
+        optionsBox.setPadding(dp(6),dp(6),dp(6),dp(6));
+        optionsScroll.addView(optionsBox,new ScrollView.LayoutParams(-1,-2));
+        work.addView(optionsScroll,new LinearLayout.LayoutParams(-1,dp(150)));
+
+        LinearLayout addRow=new LinearLayout(this);
+        addRow.setGravity(Gravity.CENTER_VERTICAL);
+        optionInput=new EditText(this);
+        optionInput.setSingleLine();
+        optionInput.setTextSize(18);
+        optionInput.setGravity(Gravity.CENTER);
+        optionInput.setHint("1–4 digits");
+        optionInput.setTextColor(INK);
+        optionInput.setHintTextColor(Color.rgb(130,136,146));
+        optionInput.setBackground(box(Color.rgb(252,251,249),Color.rgb(210,203,194),11));
+        optionInput.setInputType(InputType.TYPE_CLASS_NUMBER);
+        optionInput.setFilters(new InputFilter[]{new InputFilter.LengthFilter(4)});
+        optionInput.setImeOptions(EditorInfo.IME_ACTION_DONE);
+        addRow.addView(optionInput,new LinearLayout.LayoutParams(0,dp(42),1));
+
+        Button addOption=btn("Add");
+        stylePrimary(addOption);
+        LinearLayout.LayoutParams aop=new LinearLayout.LayoutParams(dp(72),dp(42)); aop.setMargins(dp(7),0,0,0);
+        addRow.addView(addOption,aop);
+        LinearLayout.LayoutParams arp=new LinearLayout.LayoutParams(-1,-2); arp.setMargins(0,dp(7),0,0);
+        work.addView(addRow,arp);
+
+        View.OnClickListener addListener=v->addCandidateOption();
+        addOption.setOnClickListener(addListener);
+        optionInput.setOnEditorActionListener((v,actionId,event)->{
+            if(actionId==EditorInfo.IME_ACTION_DONE){addCandidateOption();return true;}
+            return false;
+        });
+        optionInput.setOnFocusChangeListener((v,hasFocus)->{
+            if(hasFocus) appScroll.postDelayed(()->appScroll.smoothScrollTo(0,root.getHeight()),250);
+        });
+
+        Button resetBoard=btn("Reset board");
+        resetBoard.setTextColor(accent()); resetBoard.setBackground(box(pale(),Color.TRANSPARENT,10));
+        resetBoard.setOnClickListener(v->{crossed.clear();candidateOptions.clear();crossedOptions.clear();optionInput.setText("");renderDigits();renderOptions();});
+        LinearLayout.LayoutParams rbp=new LinearLayout.LayoutParams(-1,dp(36)); rbp.setMargins(0,dp(7),0,0);
+        work.addView(resetBoard,rbp);
+
+        renderOptions();
     }
 
     void refreshModeStyles(){
@@ -240,6 +273,71 @@ public class MainActivity extends Activity {
             return true;
         });
         menu.show();
+    }
+
+    void addCandidateOption(){
+        String value=optionInput.getText().toString().trim();
+        if(value.length()<1||value.length()>4){
+            status.setText("Enter 1 to 4 digits for an option.");
+            return;
+        }
+        if(!candidateOptions.contains(value)){
+            candidateOptions.add(value);
+            Collections.sort(candidateOptions,(a,b)->{
+                int na=Integer.parseInt(a), nb=Integer.parseInt(b);
+                if(na!=nb)return Integer.compare(na,nb);
+                return a.compareTo(b);
+            });
+        }
+        optionInput.setText("");
+        renderOptions();
+        optionsScroll.post(()->optionsScroll.fullScroll(View.FOCUS_DOWN));
+        status.setText("Option added. Tap it to cross it out; hold it to delete.");
+    }
+
+    void renderOptions(){
+        if(optionsBox==null)return;
+        optionsBox.removeAllViews();
+        if(candidateOptions.isEmpty()){
+            TextView empty=tv("Add possible numbers here",13,false);
+            empty.setTextColor(MUTED);
+            empty.setGravity(Gravity.CENTER);
+            optionsBox.addView(empty,new LinearLayout.LayoutParams(-1,dp(46)));
+            return;
+        }
+        for(int i=0;i<candidateOptions.size();i+=2){
+            LinearLayout row=new LinearLayout(this);
+            row.setGravity(Gravity.CENTER);
+            for(int j=0;j<2;j++){
+                int idx=i+j;
+                if(idx<candidateOptions.size()){
+                    String option=candidateOptions.get(idx);
+                    boolean off=crossedOptions.contains(option);
+                    Button b=btn((off?"× ":"")+option);
+                    b.setTextSize(18);
+                    b.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);
+                    b.setTextColor(off?Color.rgb(150,150,150):INK);
+                    b.setBackground(box(off?Color.rgb(239,236,232):WHITE,LINE,11));
+                    b.setOnClickListener(v->{
+                        if(crossedOptions.contains(option))crossedOptions.remove(option);else crossedOptions.add(option);
+                        renderOptions();
+                    });
+                    b.setOnLongClickListener(v->{
+                        candidateOptions.remove(option);
+                        crossedOptions.remove(option);
+                        renderOptions();
+                        return true;
+                    });
+                    LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(44),1);
+                    lp.setMargins(j==0?0:dp(3),dp(2),j==1?0:dp(3),dp(2));
+                    row.addView(b,lp);
+                }else{
+                    Space sp=new Space(this);
+                    row.addView(sp,new LinearLayout.LayoutParams(0,dp(44),1));
+                }
+            }
+            optionsBox.addView(row,new LinearLayout.LayoutParams(-1,-2));
+        }
     }
 
     void renderDigits(){
@@ -299,13 +397,13 @@ public class MainActivity extends Activity {
 
     void startPuzzle(){
         newBtn.setEnabled(false); hintBtn.setEnabled(false); status.setText("Generating fresh puzzle…");
-        guess.setText(""); guess.setEnabled(false); crossed.clear(); notes.setText(""); renderDigits(); attempted=false; hintUsed=false;
+        guess.setText(""); guess.setEnabled(false); crossed.clear(); candidateOptions.clear(); crossedOptions.clear(); optionInput.setText(""); renderDigits(); renderOptions(); attempted=false; hintUsed=false;
         pool.submit(()->{
             Puzzle p=generate(mode);
             runOnUiThread(()->{
                 puzzle=p; renderPuzzle(); newBtn.setEnabled(true); hintBtn.setEnabled(true); hintBtn.setText("Hint");
                 guess.setEnabled(true); refreshModeStyles();
-                status.setText("Use the scratchpad below to eliminate digits.");
+                status.setText("Use the digit row and possible-codes board to eliminate options.");
                 root.requestFocus();
                 appScroll.post(()->appScroll.smoothScrollTo(0,0));
             });
