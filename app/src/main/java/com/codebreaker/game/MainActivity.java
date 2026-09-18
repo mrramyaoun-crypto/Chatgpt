@@ -15,9 +15,9 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public class MainActivity extends Activity {
-    static final int BG=Color.rgb(239,245,252), INK=Color.rgb(35,52,70), MUTED=Color.rgb(92,108,124);
-    static final int BLUE=Color.rgb(45,96,170), GREEN=Color.rgb(46,150,96), ORANGE=Color.rgb(214,120,33);
-    static final int LINE=Color.rgb(214,225,237), WHITE=Color.WHITE, SOFT=Color.rgb(248,251,255);
+    static final int BG=Color.rgb(248,243,236), INK=Color.rgb(44,49,58), MUTED=Color.rgb(108,116,128);
+    static final int BLUE=Color.rgb(126,82,222), GREEN=Color.rgb(52,168,113), ORANGE=Color.rgb(227,122,84);
+    static final int LINE=Color.rgb(225,218,210), WHITE=Color.WHITE, SOFT=Color.rgb(252,249,245);
 
     final Random rnd=new Random();
     final ArrayList<String> ALL=new ArrayList<>();
@@ -57,15 +57,19 @@ public class MainActivity extends Activity {
     }
 
     int dp(float v){return Math.round(v*getResources().getDisplayMetrics().density);}
+    int statusBarHeight(){
+        int id=getResources().getIdentifier("status_bar_height","dimen","android");
+        return id>0?getResources().getDimensionPixelSize(id):dp(24);
+    }
     int accent(){
         if(mode.equals("easy")) return GREEN;
         if(mode.equals("hard")) return ORANGE;
         return BLUE;
     }
     int pale(){
-        if(mode.equals("easy")) return Color.rgb(235,248,241);
-        if(mode.equals("hard")) return Color.rgb(255,244,232);
-        return Color.rgb(234,242,253);
+        if(mode.equals("easy")) return Color.rgb(234,248,240);
+        if(mode.equals("hard")) return Color.rgb(254,239,234);
+        return Color.rgb(242,236,253);
     }
     GradientDrawable box(int fill,int stroke,float radius){
         GradientDrawable g=new GradientDrawable();
@@ -102,20 +106,20 @@ public class MainActivity extends Activity {
         ScrollView scroll=new ScrollView(this);
         scroll.setFillViewport(true); scroll.setBackgroundColor(BG);
         root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(10),dp(10),dp(10),dp(12));
+        root.setPadding(dp(10),statusBarHeight()+dp(8),dp(10),dp(12));
         scroll.addView(root,new ScrollView.LayoutParams(-1,-2));
         setContentView(scroll);
 
         LinearLayout header=new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout titleBox=new LinearLayout(this); titleBox.setOrientation(LinearLayout.VERTICAL);
-        TextView title=tv("Code Breaker",22,true);
-        TextView sub=tv("Crack the code with 5 logical hints",11,false); sub.setTextColor(MUTED);
+        TextView title=tv("Code Breaker",20,true);
+        TextView sub=tv("Crack the code with 5 logical hints",10,false); sub.setTextColor(MUTED);
         titleBox.addView(title); titleBox.addView(sub);
         header.addView(titleBox,new LinearLayout.LayoutParams(0,-2,1));
 
         newBtn=btn("New Puzzle"); stylePrimary(newBtn);
-        LinearLayout.LayoutParams nlp=new LinearLayout.LayoutParams(dp(108),dp(44)); nlp.setMargins(dp(8),0,0,0);
+        LinearLayout.LayoutParams nlp=new LinearLayout.LayoutParams(dp(104),dp(42)); nlp.setMargins(dp(8),0,0,0);
         header.addView(newBtn,nlp); root.addView(header);
         newBtn.setOnClickListener(v->startPuzzle());
 
@@ -127,7 +131,7 @@ public class MainActivity extends Activity {
             b.setOnClickListener(v->{
                 mode=(String)v.getTag(); refreshModeStyles(); startPuzzle();
             });
-            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(42),1);
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(40),1);
             lp.setMargins(i==0?0:dp(3),dp(8),i==2?0:dp(3),0);
             modesRow.addView(b,lp);
         }
@@ -172,7 +176,7 @@ public class MainActivity extends Activity {
         notes.setBackground(box(Color.rgb(252,253,255),Color.rgb(216,224,233),11));
         notes.setPadding(dp(9),dp(7),dp(9),dp(7));
         notes.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        LinearLayout.LayoutParams notesLp=new LinearLayout.LayoutParams(-1,dp(110)); notesLp.setMargins(0,dp(7),0,dp(5));
+        LinearLayout.LayoutParams notesLp=new LinearLayout.LayoutParams(-1,dp(82)); notesLp.setMargins(0,dp(7),0,dp(5));
         work.addView(notes,notesLp);
 
         Button clear=btn("Clear scratchpad");
@@ -191,7 +195,7 @@ public class MainActivity extends Activity {
         }
         if(newBtn!=null)stylePrimary(newBtn);
         if(modeInfo!=null){
-            modeInfo.setText(mode.equals("easy")?"Easy · quicker elimination":mode.equals("hard")?"Hard · one step more deduction":"Normal · balanced deduction");
+            modeInfo.setText(mode.equals("easy")?"Easy · extra help in Hint 3":mode.equals("hard")?"Hard · one clue tougher":"Normal · classic clue pattern");
             modeInfo.setTextColor(a); modeInfo.setBackground(box(pale(),Color.TRANSPARENT,10));
         }
     }
@@ -215,21 +219,38 @@ public class MainActivity extends Activity {
         cluesBox.removeAllViews();
         for(int i=0;i<puzzle.clues.size();i++){
             Clue c=puzzle.clues.get(i);
-            LinearLayout row=new LinearLayout(this); row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setGravity(Gravity.CENTER_VERTICAL); row.setPadding(dp(10),dp(9),dp(10),dp(9));
-            row.setMinimumHeight(dp(64)); row.setBackground(box(WHITE,LINE,14));
+            LinearLayout row=new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(dp(8),dp(7),dp(9),dp(7));
+            row.setMinimumHeight(dp(58));
+            row.setBackground(box(Color.rgb(255,253,250),LINE,15));
 
-            TextView code=tv(c.code,24,true); code.setTypeface(Typeface.MONOSPACE,Typeface.BOLD); code.setTextColor(Color.rgb(29,61,95));
+            View strip=new View(this);
+            strip.setBackground(box(accent(),Color.TRANSPARENT,5));
+            LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(dp(4),dp(40));
+            sp.setMargins(0,0,dp(9),0);
+            row.addView(strip,sp);
+
+            TextView code=tv(c.code,22,true);
+            code.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);
+            code.setTextColor(Color.rgb(57,52,68));
             code.setGravity(Gravity.CENTER_VERTICAL);
 
-            LinearLayout right=new LinearLayout(this); right.setOrientation(LinearLayout.VERTICAL); right.setPadding(dp(12),0,0,0);
-            TextView label=tv("Hint "+(i+1),11,true); label.setTextColor(accent());
-            TextView text=tv(c.text(),13,false); text.setTextColor(Color.rgb(64,80,95)); text.setLineSpacing(0f,1.08f);
-            right.addView(label); right.addView(text);
+            LinearLayout right=new LinearLayout(this);
+            right.setOrientation(LinearLayout.VERTICAL);
+            TextView label=tv("Hint "+(i+1),11,true);
+            label.setTextColor(accent());
+            TextView text=tv(c.text(),12,false);
+            text.setTextColor(Color.rgb(67,70,78));
+            text.setLineSpacing(0f,1.04f);
+            right.addView(label);
+            right.addView(text);
 
-            row.addView(code,new LinearLayout.LayoutParams(dp(92),-2));
+            row.addView(code,new LinearLayout.LayoutParams(dp(82),-2));
             row.addView(right,new LinearLayout.LayoutParams(0,-2,1));
-            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2); lp.setMargins(0,0,0,dp(6));
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);
+            lp.setMargins(0,0,0,dp(5));
             cluesBox.addView(row,lp);
         }
     }
@@ -259,56 +280,93 @@ public class MainActivity extends Activity {
         outer:for(String s:in){for(Clue c:clues)if(!matches(s,c))continue outer;out.add(s);}return out;
     }
     boolean disjoint(String a,String b){for(int i=0;i<4;i++)if(b.indexOf(a.charAt(i))>=0)return false;return true;}
-    ArrayList<Clue> poolFor(String secret,boolean fixed){
+    char fixedDigit(String secret,Clue c){
+        for(int i=0;i<4;i++)if(secret.charAt(i)==c.code.charAt(i))return secret.charAt(i);
+        return '?';
+    }
+    boolean containsExactlyOne(String code,char a,char b){
+        int n=0;
+        if(code.indexOf(a)>=0)n++;
+        if(code.indexOf(b)>=0)n++;
+        return n==1;
+    }
+    ArrayList<Clue> poolFor(String secret,int total,int right){
         ArrayList<Clue> p=new ArrayList<>();
         for(String code:ALL){
             Score s=score(secret,code);
-            if(fixed){if(s.total==1&&s.right==1)p.add(new Clue(code,1,1));}
-            else if((s.total==1&&s.right==0)||(s.total==2&&s.right==0)||(s.total==2&&s.right==1))p.add(new Clue(code,s.total,s.right));
+            if(s.total==total&&s.right==right)p.add(new Clue(code,total,right));
         }
-        Collections.shuffle(p,rnd);return p;
+        Collections.shuffle(p,rnd);
+        return p;
     }
-    Clue chooseClue(ArrayList<Clue> pool,List<String> candidates,int min,int max,Set<String> used){
+    Clue chooseByCount(ArrayList<Clue> pool,List<String> candidates,int min,int max,Set<String> used){
         for(Clue c:pool){
             if(used.contains(c.code))continue;
-            int n=0;for(String s:candidates)if(matches(s,c))n++;
+            int n=0;
+            for(String s:candidates)if(matches(s,c))n++;
             if(n>=min&&n<=max)return c;
         }
         return null;
     }
     Puzzle generate(String m){
-        int t3min,t3max,t4min,t4max;
-        if(m.equals("easy")){t3min=2;t3max=4;t4min=2;t4max=2;}
-        else if(m.equals("hard")){t3min=7;t3max=11;t4min=3;t4max=5;}
-        else{t3min=4;t3max=7;t4min=2;t4max=3;}
-        for(int attempt=0;attempt<800;attempt++){
+        while(true){
             String secret=ALL.get(rnd.nextInt(ALL.size()));
-            ArrayList<Clue> fixed=poolFor(secret,true),other=poolFor(secret,false);
+            ArrayList<Clue> fixed=poolFor(secret,1,1);
             if(fixed.size()<2)continue;
+
             Clue c1=fixed.get(rnd.nextInt(fixed.size())),c2=null;
             for(Clue x:fixed)if(disjoint(c1.code,x.code)){c2=x;break;}
             if(c2==null)continue;
-            ArrayList<Clue> clues=new ArrayList<>();clues.add(c1);clues.add(c2);
-            ArrayList<String> cand=filter(ALL,clues);Set<String> used=new HashSet<>();used.add(c1.code);used.add(c2.code);
-            Clue c3=chooseClue(other,cand,t3min,t3max,used);if(c3==null)continue;clues.add(c3);used.add(c3.code);cand=filter(cand,Collections.singletonList(c3));
-            Clue c4=chooseClue(other,cand,t4min,t4max,used);if(c4==null)continue;clues.add(c4);used.add(c4.code);cand=filter(cand,Collections.singletonList(c4));
-            Clue c5=chooseClue(other,cand,1,1,used);if(c5==null)continue;clues.add(c5);cand=filter(cand,Collections.singletonList(c5));
-            if(cand.size()==1&&cand.get(0).equals(secret))return new Puzzle(secret,clues);
-        }
-        return generateFallback();
-    }
-    Puzzle generateFallback(){
-        while(true){
-            String secret=ALL.get(rnd.nextInt(ALL.size()));
-            ArrayList<Clue> fixed=poolFor(secret,true),other=poolFor(secret,false);
-            Clue c1=fixed.get(0),c2=null;for(Clue x:fixed)if(disjoint(c1.code,x.code)){c2=x;break;}if(c2==null)continue;
-            ArrayList<Clue> clues=new ArrayList<>(Arrays.asList(c1,c2));ArrayList<String> cand=filter(ALL,clues);Set<String> u=new HashSet<>();u.add(c1.code);u.add(c2.code);
-            for(int i=0;i<3&&cand.size()>1;i++){
-                Clue best=null;int bestN=cand.size();
-                for(Clue c:other){if(u.contains(c.code))continue;int n=0;for(String s:cand)if(matches(s,c))n++;if(n>0&&n<bestN){best=c;bestN=n;if(n==1)break;}}
-                if(best==null)break;clues.add(best);u.add(best.code);cand=filter(cand,Collections.singletonList(best));
+
+            char d1=fixedDigit(secret,c1),d2=fixedDigit(secret,c2);
+            ArrayList<Clue> clues=new ArrayList<>(Arrays.asList(c1,c2));
+            ArrayList<String> cand=filter(ALL,clues);
+            Set<String> used=new HashSet<>();
+            used.add(c1.code);used.add(c2.code);
+
+            int h3t=m.equals("easy")?2:1;
+            int h3r=m.equals("easy")?1:0;
+            int h4t=2;
+            int h4r=m.equals("hard")?1:0;
+
+            int h3min=m.equals("easy")?2:(m.equals("hard")?10:6);
+            int h3max=m.equals("easy")?6:(m.equals("hard")?18:12);
+            int h4min=m.equals("hard")?3:2;
+            int h4max=m.equals("easy")?3:(m.equals("hard")?6:4);
+
+            ArrayList<Clue> p3=poolFor(secret,h3t,h3r);
+            ArrayList<Clue> p4=poolFor(secret,h4t,h4r);
+            ArrayList<Clue> p5=poolFor(secret,2,0);
+
+            Clue c3=null;
+            for(Clue x:p3){
+                if(!containsExactlyOne(x.code,d1,d2))continue;
+                int n=0;
+                for(String z:cand)if(matches(z,x))n++;
+                if(n>=h3min&&n<=h3max){c3=x;break;}
             }
-            if(clues.size()==5&&cand.size()==1&&cand.get(0).equals(secret))return new Puzzle(secret,clues);
+            if(c3==null)continue;
+            clues.add(c3);used.add(c3.code);
+            cand=filter(cand,Collections.singletonList(c3));
+
+            Clue c4=chooseByCount(p4,cand,h4min,h4max,used);
+            if(c4==null)continue;
+            clues.add(c4);used.add(c4.code);
+            cand=filter(cand,Collections.singletonList(c4));
+
+            Clue c5=chooseByCount(p5,cand,1,1,used);
+            if(c5==null)continue;
+            clues.add(c5);
+            cand=filter(cand,Collections.singletonList(c5));
+
+            if(cand.size()!=1||!cand.get(0).equals(secret))continue;
+
+            Score s1=score(secret,c1.code),s2=score(secret,c2.code),s3=score(secret,c3.code),s4=score(secret,c4.code),s5=score(secret,c5.code);
+            boolean pattern=s1.total==1&&s1.right==1&&s2.total==1&&s2.right==1&&disjoint(c1.code,c2.code)
+                    &&s3.total==h3t&&s3.right==h3r&&containsExactlyOne(c3.code,d1,d2)
+                    &&s4.total==2&&s4.right==h4r
+                    &&s5.total==2&&s5.right==0;
+            if(pattern)return new Puzzle(secret,clues);
         }
     }
     void useHint(){
