@@ -59,7 +59,7 @@ public class MainActivity extends Activity {
 
     final HashSet<Character> eliminated=new HashSet<>();
     final ArrayList<String> candidates=new ArrayList<>();
-    final HashSet<String> crossedCandidates=new HashSet<>();
+    final HashSet<Integer> crossedCandidates=new HashSet<>();
     final ArrayList<TextView> clueCodeViews=new ArrayList<>();
     final ArrayList<Clue> visibleClues=new ArrayList<>();
     final Button[] digitKeys=new Button[10];
@@ -77,6 +77,7 @@ public class MainActivity extends Activity {
     String mode="normal";
     Puzzle puzzle;
     boolean attempted=false, assistUsed=false, solved=false;
+    int attemptsLeft=3;
 
     static class Score {
         int total,right;
@@ -88,10 +89,10 @@ public class MainActivity extends Activity {
         int total,right;
         Clue(String code,int total,int right){this.code=code;this.total=total;this.right=right;}
         String shortText(){
-            if(total==1&&right==1)return "1 CORRECT · RIGHT PLACE";
-            if(total==1&&right==0)return "1 CORRECT · WRONG PLACE";
-            if(total==2&&right==0)return "2 CORRECT · BOTH MISPLACED";
-            return "2 CORRECT · 1 RIGHT / 1 WRONG";
+            if(total==1&&right==1)return "1 CORRECT · RIGHT";
+            if(total==1&&right==0)return "1 CORRECT · WRONG";
+            if(total==2&&right==0)return "2 CORRECT · MISPLACED";
+            return "2 CORRECT · 1 RIGHT + 1 WRONG";
         }
     }
 
@@ -404,7 +405,7 @@ public class MainActivity extends Activity {
         resolveBtn.setTextSize(9);
         difficultyBtn.setTextSize(20);
 
-        Button[] topActions={newCipherBtn,assistBtn,resetBtn,resolveBtn};
+        Button[] topActions={assistBtn,resetBtn,resolveBtn,newCipherBtn};
         for(Button b:topActions){
             LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(0,dp(42),1f);
             bp.setMargins(dp(1),0,dp(1),0);
@@ -509,7 +510,7 @@ public class MainActivity extends Activity {
         digitKeys[0]=zero;
         deleteBtn=mechanicalKey("DELETE",11);
         enterBtn=mechanicalKey("ENTER",12);
-        addControlRow(keyboard,new Button[]{zero,deleteBtn,enterBtn});
+        addControlRow(keyboard,new Button[]{deleteBtn,zero,enterBtn});
 
         deleteBtn.setOnClickListener(v->{pressAnim(v);backspace();});
         enterBtn.setOnClickListener(v->{pressAnim(v);saveCandidate();});
@@ -660,32 +661,33 @@ public class MainActivity extends Activity {
         candidateBox.removeAllViews();
 
         if(candidates.isEmpty()){
-            TextView empty=typeText("·  ·  ·  ·",17,false);
+            TextView empty=typeText("·  ·  ·  ·",18,false);
             empty.setTextColor(Color.rgb(143,102,64));
             empty.setGravity(Gravity.LEFT|Gravity.CENTER_VERTICAL);
             empty.setPadding(dp(4),0,dp(4),0);
-            candidateBox.addView(empty,new ViewGroup.LayoutParams(-2,dp(38)));
+            candidateBox.addView(empty,new ViewGroup.LayoutParams(-2,dp(40)));
             return;
         }
 
-        for(String value:candidates){
-            final String candidate=value;
+        for(int idx=0;idx<candidates.size();idx++){
+            final int candidateIndex=idx;
+            final String candidate=candidates.get(idx);
             final ScratchTextView item=new ScratchTextView(this);
-            item.setTextSize(18);
+            item.setTextSize(20);
             item.setTypeface(oldFace(true));
             item.setTextColor(INK);
             item.setGravity(Gravity.CENTER_VERTICAL);
             item.setPadding(dp(3),0,dp(10),0);
             item.setText(styledDigits(candidate+",",false));
-            item.setScratched(crossedCandidates.contains(candidate));
+            item.setScratched(crossedCandidates.contains(candidateIndex));
 
             item.setOnClickListener(v->{
-                if(crossedCandidates.contains(candidate))crossedCandidates.remove(candidate);
-                else crossedCandidates.add(candidate);
-                item.setScratched(crossedCandidates.contains(candidate));
+                if(crossedCandidates.contains(candidateIndex))crossedCandidates.remove(candidateIndex);
+                else crossedCandidates.add(candidateIndex);
+                item.setScratched(crossedCandidates.contains(candidateIndex));
             });
 
-            candidateBox.addView(item,new ViewGroup.LayoutParams(-2,dp(39)));
+            candidateBox.addView(item,new ViewGroup.LayoutParams(-2,dp(42)));
         }
     }
     void saveCandidate(){
@@ -696,7 +698,7 @@ public class MainActivity extends Activity {
             return;
         }
 
-        if(!candidates.contains(value))candidates.add(value);
+        candidates.add(value);
 
         clearAnswerSlots();
         renderWorking();
@@ -759,36 +761,59 @@ public class MainActivity extends Activity {
         renderCandidates();
     }
 
+    LinearLayout makeClueCard(Clue c,boolean wide){
+        visibleClues.add(c);
+
+        LinearLayout card=new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(Gravity.CENTER);
+        card.setPadding(dp(5),dp(3),dp(5),dp(3));
+        card.setBackground(new AgedPaperDrawable(8,true));
+
+        TextView code=typeText("",wide?36:34,true);
+        code.setGravity(Gravity.CENTER);
+        code.setText(styledDigits(c.code,false));
+        if(Build.VERSION.SDK_INT>=21)code.setLetterSpacing(.10f);
+        code.setTextScaleX(wide?1.30f:1.18f);
+        clueCodeViews.add(code);
+        card.addView(code,new LinearLayout.LayoutParams(-1,0,1.35f));
+
+        int ruleSize=c.shortText().length()>23?(wide?9:7):(wide?10:9);
+        TextView rule=typeText(c.shortText(),ruleSize,true);
+        rule.setTextColor(FADED);
+        rule.setGravity(Gravity.CENTER);
+        rule.setSingleLine(true);
+        card.addView(rule,new LinearLayout.LayoutParams(-1,0,.65f));
+
+        return card;
+    }
+
     void renderPuzzle(){
         cluesBox.removeAllViews();
         clueCodeViews.clear();
         visibleClues.clear();
 
-        for(Clue c:puzzle.clues){
-            visibleClues.add(c);
+        for(int rowIndex=0;rowIndex<2;rowIndex++){
+            LinearLayout row=new LinearLayout(this);
+            row.setGravity(Gravity.CENTER);
 
-            LinearLayout card=new LinearLayout(this);
-            card.setGravity(Gravity.CENTER_VERTICAL);
-            card.setPadding(dp(9),dp(3),dp(8),dp(3));
-            card.setBackground(new AgedPaperDrawable(8,true));
+            for(int col=0;col<2;col++){
+                int clueIndex=rowIndex*2+col;
+                Clue c=puzzle.clues.get(clueIndex);
+                LinearLayout card=makeClueCard(c,false);
+                LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(70),1f);
+                lp.setMargins(col==0?0:dp(2),0,col==0?dp(2):0,dp(4));
+                row.addView(card,lp);
+            }
 
-            TextView code=typeText("",22,true);
-            code.setGravity(Gravity.CENTER_VERTICAL);
-            code.setText(styledDigits(c.code,false));
-            clueCodeViews.add(code);
-            card.addView(code,new LinearLayout.LayoutParams(dp(92),dp(35)));
-
-            TextView rule=typeText(c.shortText(),10,true);
-            rule.setTextColor(FADED);
-            rule.setGravity(Gravity.CENTER_VERTICAL);
-            card.addView(rule,new LinearLayout.LayoutParams(0,dp(35),1));
-
-            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(40));
-            lp.setMargins(0,0,0,dp(3));
-            cluesBox.addView(card,lp);
+            cluesBox.addView(row,new LinearLayout.LayoutParams(-1,dp(74)));
         }
-    }
 
+        LinearLayout finalCard=makeClueCard(puzzle.clues.get(4),true);
+        LinearLayout.LayoutParams finalLp=new LinearLayout.LayoutParams(-1,dp(66));
+        finalLp.setMargins(0,0,0,dp(2));
+        cluesBox.addView(finalCard,finalLp);
+    }
     void resetBoard(){
         clearAnswerSlots();
         eliminated.clear();
@@ -805,6 +830,8 @@ public class MainActivity extends Activity {
         newCipherBtn.setText("...");
         difficultyBtn.setEnabled(false);
         if(assistBtn!=null)assistBtn.setEnabled(false);
+        if(resetBtn!=null)resetBtn.setEnabled(false);
+        if(resolveBtn!=null)resolveBtn.setEnabled(false);
         if(decipherBtn!=null)decipherBtn.setEnabled(false);
 
         clearAnswerSlots();
@@ -814,6 +841,7 @@ public class MainActivity extends Activity {
         attempted=false;
         assistUsed=false;
         solved=false;
+        attemptsLeft=3;
         hideStamp();
         refreshAllMarks();
 
@@ -833,6 +861,8 @@ public class MainActivity extends Activity {
                 newCipherBtn.setEnabled(true);
                 difficultyBtn.setEnabled(true);
                 assistBtn.setEnabled(true);
+                resetBtn.setEnabled(true);
+                resolveBtn.setEnabled(true);
                 assistBtn.setText("HINT");
                 decipherBtn.setEnabled(true);
             });
@@ -888,8 +918,78 @@ public class MainActivity extends Activity {
             decipherBtn.setEnabled(false);
             showSolvedPopup();
         }else{
-            flashStamp("CIPHER REJECTED",false);
+            attemptsLeft=Math.max(0,attemptsLeft-1);
+            if(attemptsLeft==0)decipherBtn.setEnabled(false);
+            showRejectedPopup();
         }
+    }
+
+    void showRejectedPopup(){
+        LinearLayout panel=new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setGravity(Gravity.CENTER);
+        panel.setPadding(dp(22),dp(20),dp(22),dp(18));
+        panel.setBackground(new AgedPaperDrawable(12,true));
+
+        TextView title=typeText("CIPHER REJECTED",27,true);
+        title.setGravity(Gravity.CENTER);
+        title.setTextColor(RED_INK);
+        panel.addView(title,new LinearLayout.LayoutParams(-1,dp(50)));
+
+        String remaining=attemptsLeft==0?"NO ATTEMPTS REMAINING":
+                (attemptsLeft==1?"1 ATTEMPT REMAINING":attemptsLeft+" ATTEMPTS REMAINING");
+        TextView info=typeText(remaining,15,true);
+        info.setGravity(Gravity.CENTER);
+        info.setTextColor(INK);
+        panel.addView(info,new LinearLayout.LayoutParams(-1,dp(42)));
+
+        final PopupWindow popup=new PopupWindow(panel,dp(310),dp(218),true);
+        popup.setBackgroundDrawable(rounded(PAPER,PAPER_DARK,12));
+        popup.setOutsideTouchable(false);
+        if(Build.VERSION.SDK_INT>=21)popup.setElevation(dp(12));
+
+        if(attemptsLeft>0){
+            Button again=oldButton("TRY AGAIN");
+            again.setTextSize(12);
+            again.setTextColor(INK);
+            again.setBackground(new MechanicalKeyDrawable(false,false));
+            LinearLayout.LayoutParams alp=new LinearLayout.LayoutParams(-1,dp(46));
+            alp.setMargins(0,dp(12),0,0);
+            panel.addView(again,alp);
+            again.setOnClickListener(v->popup.dismiss());
+        }else{
+            LinearLayout actions=new LinearLayout(this);
+            actions.setGravity(Gravity.CENTER);
+
+            Button next=oldButton("NEW CIPHER");
+            next.setTextSize(11);
+            next.setTextColor(INK);
+            next.setBackground(new MechanicalKeyDrawable(false,false));
+
+            Button reveal=oldButton("RESOLVE");
+            reveal.setTextSize(11);
+            reveal.setTextColor(INK);
+            reveal.setBackground(new MechanicalKeyDrawable(false,false));
+
+            LinearLayout.LayoutParams left=new LinearLayout.LayoutParams(0,dp(46),1f);
+            left.setMargins(0,dp(12),dp(4),0);
+            LinearLayout.LayoutParams right=new LinearLayout.LayoutParams(0,dp(46),1f);
+            right.setMargins(dp(4),dp(12),0,0);
+            actions.addView(next,left);
+            actions.addView(reveal,right);
+            panel.addView(actions,new LinearLayout.LayoutParams(-1,-2));
+
+            next.setOnClickListener(v->{
+                popup.dismiss();
+                startPuzzle();
+            });
+            reveal.setOnClickListener(v->{
+                popup.dismiss();
+                revealSolution();
+            });
+        }
+
+        popup.showAtLocation(root,Gravity.CENTER,0,0);
     }
 
     void showSolvedPopup(){
