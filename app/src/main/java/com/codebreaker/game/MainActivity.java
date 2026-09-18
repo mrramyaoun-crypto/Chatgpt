@@ -66,8 +66,8 @@ public class MainActivity extends Activity {
 
     LinearLayout root, cluesBox, workingSlots, machine;
     FlowLayout candidateBox;
-    ScrollView candidateScroll;
-    Button newCipherBtn, difficultyBtn, assistBtn, resetBtn, decipherBtn, deleteBtn, enterBtn;
+    FrameLayout candidateWindow;
+    Button newCipherBtn, difficultyBtn, assistBtn, resetBtn, resolveBtn, decipherBtn, deleteBtn, enterBtn;
     TextView resultStamp;
     FrameLayout answerStage;
 
@@ -391,16 +391,34 @@ public class MainActivity extends Activity {
 
         LinearLayout split=new LinearLayout(this);
         split.setGravity(Gravity.CENTER);
+
         newCipherBtn=oldButton("NEW CIPHER");
-        newCipherBtn.setBackground(splitShape(Color.rgb(91,55,34),BRASS,true));
+        assistBtn=oldButton("HINT");
+        resetBtn=oldButton("RESET");
+        resolveBtn=oldButton("RESOLVE");
         difficultyBtn=oldButton("+");
+
+        newCipherBtn.setTextSize(9);
+        assistBtn.setTextSize(9);
+        resetBtn.setTextSize(9);
+        resolveBtn.setTextSize(9);
         difficultyBtn.setTextSize(20);
-        difficultyBtn.setBackground(splitShape(Color.rgb(91,55,34),BRASS,false));
-        split.addView(newCipherBtn,new LinearLayout.LayoutParams(0,dp(42),1));
-        split.addView(difficultyBtn,new LinearLayout.LayoutParams(dp(52),dp(42)));
+
+        Button[] topActions={newCipherBtn,assistBtn,resetBtn,resolveBtn};
+        for(Button b:topActions){
+            LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(0,dp(42),1f);
+            bp.setMargins(dp(1),0,dp(1),0);
+            split.addView(b,bp);
+        }
+        LinearLayout.LayoutParams plusLp=new LinearLayout.LayoutParams(dp(38),dp(42));
+        plusLp.setMargins(dp(1),0,0,0);
+        split.addView(difficultyBtn,plusLp);
         paperPane.addView(split,new LinearLayout.LayoutParams(-1,-2));
 
         newCipherBtn.setOnClickListener(v->{pressAnim(v);startPuzzle();});
+        assistBtn.setOnClickListener(v->{pressAnim(v);useAssist();});
+        resetBtn.setOnClickListener(v->{pressAnim(v);resetBoard();});
+        resolveBtn.setOnClickListener(v->{pressAnim(v);revealSolution();});
         difficultyBtn.setOnClickListener(v->{pressAnim(v);showDifficultyPopup();});
 
         cluesBox=new LinearLayout(this);
@@ -442,19 +460,18 @@ public class MainActivity extends Activity {
         machine.addView(decipherBtn,dcp);
         decipherBtn.setOnClickListener(v->{pressAnim(v);checkWorking();});
 
-        candidateScroll=new ScrollView(this);
-        candidateScroll.setFillViewport(false);
-        candidateScroll.setNestedScrollingEnabled(true);
-        candidateScroll.setBackground(new AgedPaperDrawable(8,true));
+        candidateWindow=new FrameLayout(this);
+        candidateWindow.setBackground(new AgedPaperDrawable(8,true));
+        candidateWindow.setClipChildren(true);
 
         candidateBox=new FlowLayout(this);
         candidateBox.setPadding(dp(10),dp(7),dp(10),dp(7));
-        candidateBox.setMinimumHeight(dp(125));
-        candidateScroll.addView(candidateBox,new ScrollView.LayoutParams(-1,-2));
+        candidateBox.setMinimumHeight(dp(150));
+        candidateWindow.addView(candidateBox,new FrameLayout.LayoutParams(-1,-2,Gravity.TOP|Gravity.LEFT));
 
         LinearLayout.LayoutParams csp=new LinearLayout.LayoutParams(-1,0,1f);
         csp.setMargins(0,0,0,dp(8));
-        machine.addView(candidateScroll,csp);
+        machine.addView(candidateWindow,csp);
 
         addKeyboard();
         renderWorking();
@@ -480,14 +497,9 @@ public class MainActivity extends Activity {
         LinearLayout keyboard=new LinearLayout(this);
         keyboard.setOrientation(LinearLayout.VERTICAL);
         keyboard.setGravity(Gravity.BOTTOM);
-        LinearLayout.LayoutParams klp=new LinearLayout.LayoutParams(-1,dp(260));
+        LinearLayout.LayoutParams klp=new LinearLayout.LayoutParams(-1,dp(208));
         klp.setMargins(dp(2),0,dp(2),dp(6));
         machine.addView(keyboard,klp);
-
-        assistBtn=mechanicalKey("HINT",11);
-        resetBtn=mechanicalKey("RESET",11);
-        Button resolveBtn=mechanicalKey("RESOLVE",10);
-        addControlRow(keyboard,new Button[]{assistBtn,resetBtn,resolveBtn});
 
         addNumberRow(keyboard,new int[]{1,2,3});
         addNumberRow(keyboard,new int[]{4,5,6});
@@ -499,9 +511,6 @@ public class MainActivity extends Activity {
         enterBtn=mechanicalKey("ENTER",12);
         addControlRow(keyboard,new Button[]{zero,deleteBtn,enterBtn});
 
-        assistBtn.setOnClickListener(v->{pressAnim(v);useAssist();});
-        resetBtn.setOnClickListener(v->{pressAnim(v);resetBoard();});
-        resolveBtn.setOnClickListener(v->{pressAnim(v);revealSolution();});
         deleteBtn.setOnClickListener(v->{pressAnim(v);backspace();});
         enterBtn.setOnClickListener(v->{pressAnim(v);saveCandidate();});
     }
@@ -573,7 +582,7 @@ public class MainActivity extends Activity {
         menu.setBackground(new AgedPaperDrawable(10,true));
 
         final PopupWindow popup=new PopupWindow(menu,dp(172),-2,true);
-        String[] choices={"EASY","NORMAL","HARD","RESOLVE IT"};
+        String[] choices={"EASY","NORMAL","HARD"};
 
         for(String choice:choices){
             Button b=oldButton(choice);
@@ -585,11 +594,8 @@ public class MainActivity extends Activity {
 
             b.setOnClickListener(v->{
                 popup.dismiss();
-                if(choice.equals("RESOLVE IT"))revealSolution();
-                else{
-                    mode=choice.toLowerCase();
-                    startPuzzle();
-                }
+                mode=choice.toLowerCase();
+                startPuzzle();
             });
         }
 
@@ -695,7 +701,6 @@ public class MainActivity extends Activity {
         clearAnswerSlots();
         renderWorking();
         renderCandidates();
-        candidateScroll.post(()->candidateScroll.fullScroll(View.FOCUS_DOWN));
     }
 
     String currentPartial(){
